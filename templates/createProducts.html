@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-5">
+    <h2>Add a New Product</h2>
+    
+    {% if error %}
+        <div class="alert alert-danger">{{ error }}</div>
+    {% endif %}
+
+    <form method="POST">
+        {% csrf_token %}
+        
+        <!-- Basic Information -->
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Product Name:</label>
+                <input type="text" name="name" class="form-control" required>
+            </div>
+
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Price ($):</label>
+                <input type="number" name="price" class="form-control" step="0.01" required>
+            </div>
+        </div>
+
+        <!-- Category & Stock -->
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Category:</label>
+                <input type="text" name="category" class="form-control" required>
+            </div>
+
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Stock Quantity:</label>
+                <input type="number" name="stock" class="form-control" required>
+            </div>
+        </div>
+
+        <!-- New Business Logic Fields -->
+        <div class="row">
+            <div class="col-md-4 mb-3">
+                <label class="form-label">Low Stock Threshold:</label>
+                <input type="number" name="low_stock_threshold" class="form-control" value="10">
+            </div>
+
+            <div class="col-md-4 mb-3">
+                <label class="form-label">Discount Percentage:</label>
+                <input type="number" name="discount_percentage" class="form-control" 
+                       min="0" max="100" value="0">
+            </div>
+
+            <div class="col-md-4 mb-3">
+                <label class="form-label">Tags (comma separated):</label>
+                <input type="text" name="tags" class="form-control" 
+                       placeholder="e.g., electronics, summer, sale">
+            </div>
+        </div>
+
+        <!-- Checkboxes -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="is_popular" id="is_popular">
+                    <label class="form-check-label" for="is_popular">
+                        Mark as Popular
+                    </label>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="is_active" id="is_active" checked>
+                    <label class="form-check-label" for="is_active">
+                        Active Product
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Product Attributes -->
+        <div class="card mb-4">
+            <div class="card-header">Product Attributes</div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Brand:</label>
+                        <input type="text" name="brand" class="form-control" required>
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Color:</label>
+                        <input type="text" name="color" class="form-control" required>
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Wireless:</label>
+                        <select name="wireless" class="form-control">
+                            <option value="True">Yes</option>
+                            <option value="False">No</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Form Actions -->
+        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+            <button type="submit" class="btn btn-primary px-4">Add Product</button>
+            <a href="{% url 'render_products' %}" class="btn btn-outline-secondary px-4">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

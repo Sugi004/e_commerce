@@ -1,0 +1,49 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Profile</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body>
+
+    <div class="profile-container">
+        <h2>User Profile</h2>
+
+        <div class="user-details">
+            <p><strong>Name:</strong> {{ user.name }}</p>
+            <p><strong>Email:</strong> {{ user.email }}</p>
+            <p><strong>Role:</strong> {{ user.role }}</p>
+        </div>
+
+        <hr>
+
+        <div class="saved-addresses">
+            <h3>Saved Addresses</h3>
+            
+            <button onclick="document.getElementById('address-section').style.display='block'">
+                Show Addresses
+            </button>
+
+            <div id="address-section" style="display: none;">
+                {% if addresses %}
+                    <ul>
+                        {% for address in addresses %}
+                            <li>
+                                <strong>{{ address.type }}</strong>: 
+                                {{ address.street }}, {{ address.city }}, 
+                                {{ address.state }}, {{ address.zip }}, {{ address.country }}
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p>No saved addresses found.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>
