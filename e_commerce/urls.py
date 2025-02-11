@@ -16,7 +16,7 @@ Including another URLconf
 """
 from django.urls import path, include
 from api.users.usersApi import get_users, create_user
-from api.login.views import login_view
+from api.login.views import login_view, logout_view, sign_up
 
 
 
@@ -25,6 +25,8 @@ urlpatterns = [
     path('products/',include('api.products.urls')),
     path('users/', get_users),
     path("login/", login_view, name="login_view"),
-    path('create/', create_user),
+    path('logout/', logout_view, name='logout_view'),
+    path('create/', create_user, name='create_user'),
+    path('signup/', sign_up, name='sign_up'),
     path('profile/', include('api.users.urls'))
 ]

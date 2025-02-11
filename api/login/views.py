@@ -90,3 +90,16 @@ def login_view(request):
             return JsonResponse({"error": str(e)}, status=500)
 
     return render(request, 'login.html')
+
+from django.shortcuts import redirect
+from django.http import HttpResponse
+
+def logout_view(request):
+    # Clear the session
+    response = redirect('render_products')
+    response.delete_cookie('access_token')
+    return response
+
+
+def sign_up(request):
+    return render(request, 'sign_up.html')

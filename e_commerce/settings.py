@@ -21,6 +21,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 BASE_DIR2 = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 TEMPLATE_DIR = os.path.join(BASE_DIR2, 'templates')
+TEMPLATETAGS_DIR = os.path.join(BASE_DIR2, 'templatetags')
 STATIC_DIR = os.path.join(BASE_DIR2, 'static')
 
 
@@ -58,6 +59,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'api.authentication.middlewares.auth_middleware.TokenMiddleware',
     
 ]
 
@@ -69,7 +71,7 @@ ROOT_URLCONF = 'e_commerce.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [TEMPLATE_DIR],
+        'DIRS': [TEMPLATE_DIR, TEMPLATETAGS_DIR],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
