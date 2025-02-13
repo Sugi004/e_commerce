@@ -99,21 +99,64 @@
                                 {% else %}
                                     <img class="card-img-top" src="{% static 'images/placeholder.jpg' %}" alt="No image available" />
                                 {% endif %}
+                                
                                 <!-- Product details-->
                                 <div class="card-body p-4">
                                     <div class="text-center">
+                                        <!-- Always Visible Information -->
                                         <h5 class="fw-bolder">{{ product.name }}</h5>
                                         <div class="text-muted mb-2">{{ product.category }}</div>
-                                        {% if product.attributes.discount %}
-                                        {% with discounted_price=product.price|multiply:0.01|multiply:product.attributes.discount|subtract:product.price|abs %}
-                                            <span class="text-decoration-line-through text-muted">${{ product.price }}</span>
-                                            <span class="text-primary">${{ discounted_price|floatformat:2 }}</span>
-                                        {% endwith %}
-                                    {% else %}
-                                        <span class="text-primary">${{ product.price|floatformat:2 }}</span>
-                                    {% endif %}
+                                        {% if product.attributes.brand %}
+                                            <div class="mb-2">
+                                                <strong>Brand:</strong> {{ product.attributes.brand }}
+                                            </div>
+                                        {% endif %}
+
+                                        {%if product.attributes.rating%}
+                                            <div class="mb-2">
+                                                <span class="text-warning">
+                                                    {% for i in ""|ljust:product.attributes.rating|make_list %}
+                                                        ★
+                                                    {% endfor %}
+                                                </span>
+                                                <small class="text-muted">({{ product.attributes.rating }})</small>
+                                            </div>
+                                        {%endif%}
+
+                                        {% if product.attributes.model %}
+                                            <div class="mb-2">
+                                                <strong>Model:</strong> {{ product.attributes.model }}
+                                            </div>
+                                        {% endif %}
+
+                                        {% if product.attributes.color %}
+                                            <div class="mb-2">
+                                                <strong>Color:</strong> {{ product.attributes.color }}
+                                            </div>
+                                        {% endif %}
+
+                                        {% if request.user_data %}
+                                            <!-- Authenticated User Content -->
+                                            {% if product.discount %}
+                                                {% with discounted_price=product.price|multiply:0.01|multiply:product.discount|subtract:product.price|abs %}
+                                                    <span class="text-decoration-line-through text-muted">${{ product.price }}</span>
+                                                    <span class="text-primary">${{ discounted_price|floatformat:2 }}</span>
+                                                {% endwith %}
+                                            {% else %}
+                                                <span class="text-primary">${{ product.price|floatformat:2 }}</span>
+                                            {% endif %}
+                                        {% else %}
+                                            <!-- Guest User CTA -->
+                                            <div class="alert alert-info mt-3" role="alert">
+                                                <i class="bi bi-info-circle"></i>
+                                                <a href="{% url 'login_view' %}" class="alert-link">Log in</a> or 
+                                                <a href="{% url 'sign_up' %}" class="alert-link">Sign up</a> 
+                                                to view prices and make purchases
+                                            </div>
+                                        {% endif %}
                                     </div>
                                 </div>
+
                                 <!-- Product actions-->
                                 <div class="card-footer p-4 pt-0 border-top-0 bg-transparent">
                                     <div class="text-center">
@@ -129,8 +172,56 @@
                     {% endfor %}
                 </div>
             </div>
-        </section>
 
+            <div class="container px-4 px-lg-5 mt-4">
+                {% if is_paginated %}
+                <nav aria-label="Page navigation">
+                    <ul class="pagination justify-content-center">
+                        {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page=1{% if selected_category %}&category={{ selected_category }}{% endif %}" aria-label="First">
+                                    <span aria-hidden="true">&laquo;&laquo;</span>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if selected_category %}&category={{ selected_category }}{% endif %}" aria-label="Previous">
+                                    <span aria-hidden="true">&laquo;</span>
+                                </a>
+                            </li>
+                        {% endif %}
+    
+                        {% for num in page_obj.paginator.page_range %}
+                            {% if page_obj.number == num %}
+                                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ num }}{% if selected_category %}&category={{ selected_category }}{% endif %}">{{ num }}</a>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+    
+                        {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if selected_category %}&category={{ selected_category }}{% endif %}" aria-label="Next">
+                                    <span aria-hidden="true">&raquo;</span>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if selected_category %}&category={{ selected_category }}{% endif %}" aria-label="Last">
+                                    <span aria-hidden="true">&raquo;&raquo;</span>
+                                </a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+    
+                <p class="text-center text-muted">
+                    Showing products {{ page_obj.start_index }}-{{ page_obj.end_index }} of {{ page_obj.paginator.count }}
+                </p>
+                {% endif %}
+            </div>
+        </section>
+        
         <!-- Footer-->
         <footer class="py-5 bg-dark">
             <div class="container">
@@ -140,5 +231,39 @@
 
         <!-- Bootstrap core JS-->
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+        
+        {% if not request.user_data %}
+        <div class="modal fade" id="signupPromptModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Sign Up for Full Access!</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Create an account to:</p>
+                        <ul>
+                            <li>View product prices</li>
+                            <li>Access exclusive discounts</li>
+                            <li>Make purchases</li>
+                            <li>Track your orders</li>
+                        </ul>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Maybe Later</button>
+                        <a href="{% url 'sign_up' %}" class="btn btn-primary">Sign Up Now</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add this script before the closing body tag -->
+        <script>
+            setTimeout(() => {
+                const signupModal = new bootstrap.Modal(document.getElementById('signupPromptModal'));
+                signupModal.show();
+            }, 120000); // 2 minutes in milliseconds
+        </script>
+        {% endif %}
     </body>
 </html>

@@ -1,9 +1,9 @@
-
 import logging
 import json
 from django.http import JsonResponse
 from django.shortcuts import render
-from .productsApi import get_products, product_collection  # Adjust import based on where your get_products function is defined
+from .productsApi import get_products, product_collection
+from django.core.paginator import Paginator  # Adjust import based on where your get_products function is defined
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 def render_products(request):
     try:
         # Get products with category filtering
-        response = get_products(request)  # This will automatically handle category parameter
+        response = get_products(request)
 
         if isinstance(response, JsonResponse):
             # Decode the JSON response content
@@ -28,14 +28,31 @@ def render_products(request):
         for product in products:
             product['product_id'] = str(product.get('_id', ''))
 
+        try:
+            page_number = int(request.GET.get('page', 1))
+        except ValueError:
+            page_number = 1
+
+        paginator = Paginator(products, 28)  # Show 25 products per page
+
+        try:
+            page_obj = paginator.page(page_number)
+        except:
+            page_obj = paginator.page(1)
+
         context = {
-            "products": products,
+            "products": page_obj,
             "categories": categories,
-            "selected_category": request.GET.get("category")
+            "selected_category": request.GET.get("category"),
+            "page_obj": page_obj,
+            "is_paginated": paginator.num_pages > 1,
+            "total_products": len(products),
+            "showing_start": (page_number - 1) * 28 + 1,
+            "showing_end": min(page_number * 28, len(products))
         }
 
         return render(request, "viewProducts.html", context)
 
     except Exception as e:
-        logger.error(str(e), exc_info=True)
+        logger.error(f"Error in render_products: {str(e)}", exc_info=True)
         return render(request, "error.html", {"error": str(e)})

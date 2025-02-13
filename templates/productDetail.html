@@ -1,4 +1,5 @@
-<!-- product_detail.html -->
+{%load static%}
+{% load productFilters %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7,22 +8,87 @@
     <title>{{ product.name }} - Product Detail</title>
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
 </head>
 <body>
+    <!-- Navigation Bar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="{% url 'render_products' %}">E-Commerce Store</a>
+            <ul class="navbar-nav me-auto mb-2 mb-lg-0 ms-lg-4">
+                <li class="nav-item"><a class="nav-link active" aria-current="page" href="{% url 'render_products' %}">Home</a></li>
+            </ul>
+        </div>
+    </nav>
+
     <!-- Product Section -->
     <div class="container mt-5">
         <div class="row">
             <!-- Product Image -->
             <div class="col-md-6">
-                <img class="img-fluid" src="{{ product.image }}" alt="{{ product.name }}">
+                {% if product.image_url %}
+                    <img class="img-fluid" src="{{ product.image_url }}" alt="{{ product.name }}">
+                {% else %}
+                    <img class="img-fluid" src="{% static 'images/placeholder.jpg' %}" alt="No image available">
+                {% endif %}
             </div>
             <!-- Product Info -->
             <div class="col-md-6">
                 <h1 class="my-4">{{ product.name }}</h1>
-                <p>{{ product.description }}</p>
-                <p><strong>Price:</strong> ${{ product.price }}</p>
-                <!-- Add to Cart Button -->
-                <a href="#" class="btn btn-primary">Add to Cart</a>
+                <p class="text-muted mb-3">{{ product.category }}</p>
+                
+                {% if product.attributes.brand %}
+                    <p><strong>Brand:</strong> {{ product.attributes.brand }}</p>
+                {% endif %}
+
+                {%if product.attributes.rating%}
+                    <div class="mb-2">
+                        <span class="text-warning">
+                            {% for i in ""|ljust:product.attributes.rating|make_list %}
+                                ★
+                            {% endfor %}
+                        </span>
+                        <small class="text-muted">({{ product.attributes.rating }})</small>
+                    </div>\
+                {% endif %}
+                
+                {% if product.attributes.model %}
+                    <p><strong>Model:</strong> {{ product.attributes.model }}</p>
+                {% endif %}
+                
+                {% if product.attributes.color %}
+                    <p><strong>Color:</strong> {{ product.attributes.color }}</p>
+                {% endif %}
+                
+
+                {% if request.user_data %}
+                    <!-- Authenticated User Content -->
+                    <div class="my-4">
+                        {% if product.discount %}
+                            {% with discounted_price=product.price|multiply:0.01|multiply:product.discount|subtract:product.price|abs %}
+                                <span class="text-decoration-line-through text-muted">${{ product.price }}</span>
+                                <span class="text-primary">${{ discounted_price|floatformat:2 }}</span>
+                            {% endwith %}
+                        {% else %}
+                            <span class="text-primary">${{ product.price|floatformat:2 }}</span>
+                        {% endif %}
+                        
+                        <p class="{% if product.stock > 0 %}text-success{% else %}text-danger{% endif %}">
+                            {% if product.stock > 0 %}In Stock{% else %}Out of Stock{% endif %}
+                        </p>
+                        
+                        <!-- Add to Cart Button -->
+                        <button class="btn btn-primary" onclick="addToCart('{{ product.id }}')">Add to Cart</button>
+                    </div>
+                {% else %}
+                    <!-- Guest User CTA -->
+                    <div class="alert alert-info mt-4" role="alert">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <a href="{% url 'login_view' %}" class="alert-link">Log in</a> or 
+                        <a href="{% url 'sign_up' %}" class="alert-link">Sign up</a> 
+                        to view prices and make purchases
+                    </div>
+                {% endif %}
             </div>
         </div>
 
@@ -31,44 +97,73 @@
             <div class="col-lg-12">
                 <ul class="nav nav-tabs" id="productDetailsTab" role="tablist">
                     <li class="nav-item" role="presentation">
-                        <a class="nav-link active" id="description-tab" data-bs-toggle="tab" href="#description" role="tab" aria-controls="description" aria-selected="true">Description</a>
+                        <a class="nav-link active" id="description-tab" data-bs-toggle="tab" href="#description" role="tab">Description</a>
                     </li>
                     <li class="nav-item" role="presentation">
-                        <a class="nav-link" id="attributes-tab" data-bs-toggle="tab" href="#attributes" role="tab" aria-controls="attributes" aria-selected="false">Attributes</a>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <a class="nav-link" id="reviews-tab" data-bs-toggle="tab" href="#reviews" role="tab" aria-controls="reviews" aria-selected="false">Reviews</a>
+                        <a class="nav-link" id="attributes-tab" data-bs-toggle="tab" href="#attributes" role="tab">Specifications</a>
                     </li>
                 </ul>
                 <div class="tab-content mt-4" id="productDetailsTabContent">
                     <!-- Description Tab -->
-                    <div class="tab-pane fade show active" id="description" role="tabpanel" aria-labelledby="description-tab">
-                        <p>  {% lorem 5 b random %} </p>
+                    <div class="tab-pane fade show active" id="description" role="tabpanel">
+                        <p>{{ product.description|default:"No description available." }}</p>
                     </div>
                     <!-- Attributes Tab -->
-                    <div class="tab-pane fade" id="attributes" role="tabpanel" aria-labelledby="attributes-tab">
-                        <ul>
-                            <li><strong>Brand:</strong> {{ product.attributes.brand }}</li>
-                            <li><strong>Model:</strong> {{ product.attributes.model }}</li>
-                            <li><strong>Color:</strong> {{ product.attributes.color }}</li>
-                            <li><strong>Weight:</strong> {{ product.attributes.weight }}</li>
-                            <li><strong>Dimensions:</strong> {{ product.attributes.dimensions }}</li>
-                            <li><strong>Rating:</strong> {{ product.attributes.rating }} / 5</li>
-                            <li><strong>Warranty:</strong> {{ product..attributeswarranty }}</li>
-                            <li><strong>Release Date:</strong> {{ product.attributes.release_date }}</li>
-                            <li><strong>Discount:</strong> {{ product.attributes.discount }}%</li>
-                            <li><strong>Manufacturer:</strong> {{ product.attributes.manufacturer }}</li>
-                            <li><strong>Color Family:</strong> {{ product.attributes.color_family }}</li>
-                        </ul>
-                    </div>
-                    <!-- Reviews Tab -->
-                    <div class="tab-pane fade" id="reviews" role="tabpanel" aria-labelledby="reviews-tab">
-                        <p>No reviews yet.</p>
+                    <div class="tab-pane fade" id="attributes" role="tabpanel">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <ul class="list-unstyled">
+                                    {% if product.attributes.dimensions %}
+                                        <li class="mb-2"><strong>Dimensions:</strong> {{ product.attributes.dimensions }}</li>
+                                    {% endif %}
+                                    {% if product.attributes.weight %}
+                                        <li class="mb-2"><strong>Weight:</strong> {{ product.attributes.weight }}</li>
+                                    {% endif %}
+                                    {% if product.attributes.warranty %}
+                                        <li class="mb-2"><strong>Warranty:</strong> {{ product.attributes.warranty }}</li>
+                                    {% endif %}
+                                </ul>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- Sign-up Prompt Modal -->
+    {% if not request.user_data %}
+    <div class="modal fade" id="signupPromptModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Sign Up for Full Access!</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Create an account to:</p>
+                    <ul>
+                        <li>View product prices</li>
+                        <li>Access exclusive discounts</li>
+                        <li>Make purchases</li>
+                        <li>Track your orders</li>
+                    </ul>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Maybe Later</button>
+                    <a href="{% url 'sign_up' %}" class="btn btn-primary">Sign Up Now</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        setTimeout(() => {
+            const signupModal = new bootstrap.Modal(document.getElementById('signupPromptModal'));
+            signupModal.show();
+        }, 120000); // 2 minutes in milliseconds
+    </script>
+    {% endif %}
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/js/bootstrap.bundle.min.js"></script>

@@ -15,6 +15,7 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.urls import path, include
+from django.shortcuts import redirect
 from api.users.usersApi import get_users, create_user
 from api.login.views import login_view, logout_view, sign_up
 
@@ -22,6 +23,7 @@ from api.login.views import login_view, logout_view, sign_up
 
 
 urlpatterns = [
+    path("", lambda request: redirect('render_products'), name='root'),
     path('products/',include('api.products.urls')),
     path('users/', get_users),
     path("login/", login_view, name="login_view"),

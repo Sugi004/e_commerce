@@ -1,6 +1,7 @@
 from django.contrib.auth.hashers import check_password
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+from django.contrib import messages
 import json
 from ..mongoDb import get_collection  
 import jwt
@@ -8,61 +9,62 @@ from datetime import datetime, timedelta
 from decouple import config
 from django.shortcuts import render, redirect
 
+def is_json_request(request):
+    return request.content_type == 'application/json'
 
 @csrf_exempt
 def login_view(request):
     if request.method == "POST":
         try:
-            is_jsonRequest = request.content_type == 'application/json'
-            if is_jsonRequest:
+            if is_json_request(request):
                 data = json.loads(request.body)
                 email = data.get("email")
                 password = data.get("password")
             else:
-                # Handle form submission
                 email = request.POST.get("email", "").strip()
                 password = request.POST.get("password", "").strip()
 
             if not email or not password:
-                return JsonResponse({"error": "Email and password are required"}, status=400)
+                if is_json_request(request):
+                    return JsonResponse({"error": "Email and password are required"}, status=400)
+                messages.error(request, "Email and password are required")
+                return render(request, 'login.html')
 
             user_collection = get_collection("users")
-
-            # Fetch user by email
             user = user_collection.find_one({"email": email})
 
             if not user:
-                return JsonResponse({"error": "Invalid credentials"}, status=401)
+                if is_json_request(request):
+                    return JsonResponse({"error": "Invalid credentials"}, status=401)
+                messages.error(request, "Invalid credentials")
+                return render(request, 'login.html')
 
             # Verify hashed password
             stored_hashed_password = user.get("password")
             if not check_password(password, stored_hashed_password):
-                return JsonResponse({"error": "Invalid credentials"}, status=401)
+                if is_json_request(request):
+                    return JsonResponse({"error": "Invalid credentials"}, status=401)
+                messages.error(request, "Invalid credentials")
+                return render(request, 'login.html')
 
-            # Determine user role
+            # Create JWT payload
             payload = {
-                "user_id": str(user["_id"]),  # Use MongoDB's _id as user identifier
+                "user_id": str(user["_id"]),
                 "email": user["email"],
-                "role": user.get("role", "guest"), 
-                "exp": datetime.now() + timedelta(hours=24)  # Set token expiration to 24 hours
+                "role": user.get("role", "guest"),
+                "exp": datetime.now() + timedelta(hours=24)
             }
 
-            # Generate the JWT token
-            secret_key =  config('SECRET_KEY')
-            algorithm = "HS256"  # Algorithm to sign the token
+            # Generate JWT token
+            secret_key = config('SECRET_KEY')
+            token = jwt.encode(payload, secret_key, algorithm="HS256")
 
-            token = jwt.encode(payload, secret_key, algorithm=algorithm)
-        
-            # Prepare response with the generated token
-            response = {
-                "message": "Login successful",
-                "role": payload["role"]
-            }
-
+            # Set session data
             request.session["user_id"] = str(user["_id"])
             request.session["role"] = payload["role"]
 
-            if is_jsonRequest:
+            # Prepare response
+            if is_json_request(request):
                 response_data = {
                     "message": "Login successful",
                     "role": payload["role"],
@@ -70,9 +72,10 @@ def login_view(request):
                 }
                 response = JsonResponse(response_data, status=200)
             else:
-                response = redirect("/products/")
+                messages.success(request, "Login successful")
+                response = redirect("render_products")
 
-            #Store the token in cookie for future
+            # Set cookie
             response.set_cookie(
                 key="access_token",
                 value=token,
@@ -81,25 +84,27 @@ def login_view(request):
                 samesite="Strict"
             )
 
-            return response 
-            
+            return response
 
         except json.JSONDecodeError:
-            return JsonResponse({"error": "Invalid JSON"}, status=400)
+            if is_json_request(request):
+                return JsonResponse({"error": "Invalid JSON"}, status=400)
+            messages.error(request, "Invalid JSON")
+            return render(request, 'login.html')
         except Exception as e:
-            return JsonResponse({"error": str(e)}, status=500)
+            if is_json_request(request):
+                return JsonResponse({"error": str(e)}, status=500)
+            messages.error(request, str(e))
+            return render(request, 'login.html')
 
     return render(request, 'login.html')
 
-from django.shortcuts import redirect
-from django.http import HttpResponse
-
 def logout_view(request):
-    # Clear the session
+    request.session.flush()
     response = redirect('render_products')
     response.delete_cookie('access_token')
+    messages.success(request, "Logged out successfully")
     return response
-
 
 def sign_up(request):
     return render(request, 'sign_up.html')
