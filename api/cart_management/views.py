@@ -71,6 +71,7 @@ def view_cart(request):
         
         
         for item in cart_items:
+
             product = item["product"]
             quantity = item["quantity"]
             price = float(product.get("price", 0))
@@ -83,15 +84,28 @@ def view_cart(request):
                 
             item["subtotal"] = price * quantity
             cart_total += item["subtotal"]
-            cart_count += quantity
-            product_id = item["product"]["_id"] 
-        context = {
-            "cart_items": cart_items,
-            "cart_total": round(cart_total, 2),
-            "cart_count": cart_count,
-            "product_id": product_id
+            cart_count += quantity 
+
+        product_id = [str(item["product"]["_id"]) for item in cart_items]    
             
-        }
+        
+        if product_id:
+            context = {
+                    "cart_items": cart_items,
+                    "cart_total": round(cart_total, 2),
+                    "cart_count": cart_count,
+                    "product_id": product_id
+                    
+                }
+        else:
+            context = {
+                    "cart_items": [],
+                    "cart_total": 0,
+                    "cart_count": 0,
+                    
+                }
+        
+        print(context)
 
         if request.content_type == "application/json":
             return JsonResponse(context)
@@ -100,6 +114,7 @@ def view_cart(request):
         
 
     except Exception as e:
+        print(f"Error viewing cart: {str(e)}")  # Debug print
         return handle_response(request, None, str(e), 500)
 
 @csrf_exempt
@@ -359,23 +374,38 @@ def remove_from_cart(request, product_id):
         if not cart:
             return handle_response(request, None, "Cart not found", 404)
 
+        # Convert product_id to string for comparison
+        product_id_str = str(product_id)
+
         # Verify item exists in cart
         cart_items = get_cart_items(cart["_id"])
-        item_exists = any(str(item["product"]["_id"]) == product_id for item in cart_items)
+        item_exists = any(str(item["product"]["_id"]) == product_id_str for item in cart_items)
         
         if not item_exists:
             return handle_response(request, None, "Item not found in cart", 404)
 
         # Remove the specific item
-        update_cart_item(cart["_id"], product_id, 0, "remove")
+        update_cart_item(str(cart["_id"]), product_id_str, 0, "remove")
         
-        return handle_response(
-            request,
-            "Item removed from cart successfully",
-            None,
-            200,
-            'view_cart'
-        )
+        # Add success message
+        messages.success(request, "Item removed from cart successfully")
+
+        if request.content_type == "application/json":
+            # Get updated cart data
+            updated_cart_items = get_cart_items(cart["_id"])
+            cart_total = sum(item.get("subtotal", 0) for item in updated_cart_items)
+            cart_count = sum(item.get("quantity", 0) for item in updated_cart_items)
+            
+            return JsonResponse({
+                "status": 200,
+                "message": "Item removed from cart successfully",
+                "cart_total": round(cart_total, 2),
+                "cart_count": cart_count
+            })
+
+        # Redirect to cart page for regular requests
+        return redirect('view_cart')
 
     except Exception as e:
+        print(f"Error removing item from cart: {str(e)}")  # Debug print
         return handle_response(request, None, str(e), 500)
