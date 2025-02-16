@@ -67,6 +67,7 @@ def view_cart(request):
         # Calculate totals and apply discounts
         cart_total = 0
         cart_count = 0
+        product_id = ""
 
         
         
@@ -85,8 +86,9 @@ def view_cart(request):
             item["subtotal"] = price * quantity
             cart_total += item["subtotal"]
             cart_count += quantity 
+            product_id = product["_id"]
 
-        product_id = [str(item["product"]["_id"]) for item in cart_items]    
+        
             
         
         if product_id:
@@ -104,8 +106,6 @@ def view_cart(request):
                     "cart_count": 0,
                     
                 }
-        
-        print(context)
 
         if request.content_type == "application/json":
             return JsonResponse(context)
@@ -219,8 +219,8 @@ def add_to_cart(request, product_id):
                 "redirect": reverse('view_cart')
             }, status=200)
         
-        return messages.success(request, "Item added to cart successfully")
-        
+        messages.success(request, "Item added to cart successfully")
+        return redirect("view_cart")
 
     except Exception as e:
         return handle_response(request, None, str(e), 500)
