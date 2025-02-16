@@ -45,8 +45,14 @@ def get_single_product(request, id):
         if product:
             product["_id"] = str(product["_id"]) 
             product_obj = SimpleNamespace(**product)
-            print(product_obj.name)
-            return render(request, 'productDetail.html', {'product': product_obj})
+        
+            context = {
+                'product': product_obj,
+                'product_id': product_obj._id
+            }
+
+            print(product_obj._id)
+            return render(request, 'productDetail.html', context)
         else:
             return JsonResponse({"error": "Product not found"}, status=404)
     except Exception as e:

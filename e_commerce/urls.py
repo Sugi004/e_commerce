@@ -22,6 +22,7 @@ from api.login.views import login_view, logout_view, sign_up
 
 
 
+
 urlpatterns = [
     path("", lambda request: redirect('render_products'), name='root'),
     path('products/',include('api.products.urls')),
@@ -30,5 +31,6 @@ urlpatterns = [
     path('logout/', logout_view, name='logout_view'),
     path('create/', create_user, name='create_user'),
     path('signup/', sign_up, name='sign_up'),
-    path('profile/', include('api.users.urls'))
+    path('profile/', include('api.users.urls')),
+    path('cart/', include('api.cart_management.urls')),
 ]
