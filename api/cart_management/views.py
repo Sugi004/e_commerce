@@ -7,8 +7,7 @@ from .cart_management_db import (
     create_cart,
     update_cart_item,
     get_cart_items,
-    clear_cart,
-    delete_cart
+    clear_cart
 )
 from bson import ObjectId, errors
 import json
@@ -67,9 +66,6 @@ def view_cart(request):
         # Calculate totals and apply discounts
         cart_total = 0
         cart_count = 0
-        product_id = ""
-
-        
         
         for item in cart_items:
 
@@ -77,6 +73,8 @@ def view_cart(request):
             quantity = item["quantity"]
             price = float(product.get("price", 0))
             
+             # Convert _id to id for template access
+            item['product']['id'] = str(item['product']['_id'])
             
             # Apply discount if available
             if product.get("discount"):
@@ -85,32 +83,19 @@ def view_cart(request):
                 
             item["subtotal"] = price * quantity
             cart_total += item["subtotal"]
-            cart_count += quantity 
-            product_id = product["_id"]
-
-        
+            cart_count = len(cart_items)
             
+        context = {
+            "cart_items": cart_items,  
+            "cart_total": round(cart_total, 2),
+            "cart_count": cart_count, 
+        }
+        response = render(request, 'cart.html', context)
         
-        if product_id:
-            context = {
-                    "cart_items": cart_items,
-                    "cart_total": round(cart_total, 2),
-                    "cart_count": cart_count,
-                    "product_id": product_id
-                    
-                }
-        else:
-            context = {
-                    "cart_items": [],
-                    "cart_total": 0,
-                    "cart_count": 0,
-                    
-                }
-
         if request.content_type == "application/json":
             return JsonResponse(context)
-         
-        return render(request, 'cart.html', context)
+        
+        return response
         
 
     except Exception as e:
@@ -216,7 +201,6 @@ def add_to_cart(request, product_id):
             return JsonResponse({
                 "message": "Item added to cart successfully",
                 "cart_count": quantity,
-                "redirect": reverse('view_cart')
             }, status=200)
         
         messages.success(request, "Item added to cart successfully")
@@ -279,6 +263,11 @@ def update_cart(request, product_id):
         cart_total = sum(item["subtotal"] for item in updated_cart_items)
         cart_count = sum(item["quantity"] for item in updated_cart_items)
 
+        
+
+
+        response = redirect("view_cart")
+
         if request.content_type == "application/json":
             return JsonResponse({
                 "status": 200,
@@ -288,7 +277,7 @@ def update_cart(request, product_id):
             })
 
         # Render the cart view with updated data
-        return redirect("view_cart")
+        return response
 
     except Exception as e:
         return handle_response(request, None, str(e), 500)
@@ -310,53 +299,11 @@ def clear_cart_view(request):
             return handle_response(request, None, "Cart not found", 404)
 
         clear_cart(cart["_id"])
-        return handle_response(request, "Cart cleared successfully", None, 200)
+        return render(request, 'cart.html')
 
     except Exception as e:
         return handle_response(request, None, str(e), 500)
-    
-@csrf_exempt
-def delete_cart_view(request):
-    """Delete cart based on expiration"""
-    if request.method != "POST":
-        return handle_response(request, None, "Method not allowed", 405)
 
-    try:
-        # Get cart
-        if request.user_data:
-            cart = get_user_cart(user_id=request.user_data["_id"])
-        else:
-            cart = get_user_cart(session_id=request.session.session_key)
-
-        if not cart:
-            return handle_response(request, None, "Cart not found", 404)
-
-        # Check if guest cart is expired (24 hours)
-        if not request.user_data and cart.get("created_at"):
-            current_time = datetime.utcnow()
-            cart_age = current_time - cart["created_at"]
-            
-            if cart_age.total_seconds() > 24 * 60 * 60:  # 24 hours in seconds
-                delete_cart(cart["_id"])
-                request.session.flush()  # Clear session
-                return handle_response(
-                    request,
-                    "Guest cart expired and deleted",
-                    None,
-                    200
-                )
-
-        # For authenticated users or non-expired guest carts
-        delete_cart(cart["_id"])
-        
-        # Clear session if guest user
-        if not request.user_data:
-            request.session.flush()
-
-        return handle_response(request, "Cart deleted successfully", None, 200)
-
-    except Exception as e:
-        return handle_response(request, None, str(e), 500)
     
 @csrf_exempt
 def remove_from_cart(request, product_id):

@@ -132,8 +132,3 @@ def clear_cart(cart_id):
             }
         }
     )
-
-def delete_cart(cart_id):
-    """Delete entire cart document"""
-    cart_collection = get_collection("carts")
-    return cart_collection.delete_one({"_id": ObjectId(cart_id)})

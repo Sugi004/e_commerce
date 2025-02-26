@@ -43,15 +43,16 @@ def get_single_product(request, id):
         product = product_collection.find_one({"_id": ObjectId(id)})
 
         if product:
-            product["_id"] = str(product["_id"]) 
+            product["id"] = str(product["_id"]) 
             product_obj = SimpleNamespace(**product)
-        
+            
             context = {
                 'product': product_obj,
-                'product_id': product_obj._id
+                
             }
 
-            print(product_obj._id)
+            print(context)
+
             return render(request, 'productDetail.html', context)
         else:
             return JsonResponse({"error": "Product not found"}, status=404)

@@ -3,7 +3,8 @@ import json
 from django.http import JsonResponse
 from django.shortcuts import render
 from .productsApi import get_products, product_collection
-from django.core.paginator import Paginator  # Adjust import based on where your get_products function is defined
+from django.core.paginator import Paginator 
+from ..cart_management.cart_management_db import get_user_cart, get_cart_items
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -26,19 +27,32 @@ def render_products(request):
 
         # Process products for template
         for product in products:
-            product['product_id'] = str(product.get('_id', ''))
+            product['id'] = str(product.get('_id', ''))
 
         try:
             page_number = int(request.GET.get('page', 1))
         except ValueError:
             page_number = 1
 
-        paginator = Paginator(products, 28)  # Show 25 products per page
+        paginator = Paginator(products, 28)
 
         try:
             page_obj = paginator.page(page_number)
         except:
             page_obj = paginator.page(1)
+
+        cart_count = 0
+        if request.user_data:
+            cart = get_user_cart(user_id=request.user_data["_id"])
+        else:
+            cart = get_user_cart(session_id=request.session.session_key)
+            
+        if cart:
+            cart_items = get_cart_items(cart["_id"])
+
+           
+            cart_count = len(cart_items)
+
 
         context = {
             "products": page_obj,
@@ -48,7 +62,8 @@ def render_products(request):
             "is_paginated": paginator.num_pages > 1,
             "total_products": len(products),
             "showing_start": (page_number - 1) * 28 + 1,
-            "showing_end": min(page_number * 28, len(products))
+            "showing_end": min(page_number * 28, len(products)),
+            "cart_count": cart_count,
         }
 
         return render(request, "viewProducts.html", context)

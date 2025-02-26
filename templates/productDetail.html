@@ -89,7 +89,7 @@
                 </p>
                 
                 
-                 <form action="{% url 'add_to_cart' product_id %}" method="POST" class="d-inline">
+                 <form action="{% url 'add_to_cart' product.id %}" method="POST" class="d-inline">
                     {% csrf_token %}
                     <button type="submit" class="btn btn-primary" {% if not product.stock > 0 %}disabled{% endif %}>
                         Add to Cart

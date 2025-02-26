@@ -53,7 +53,7 @@
                     <a href="{% url 'view_cart' %}" class="btn btn-outline-light me-2">
                         <i class="bi-cart-fill me-1"></i>
                         Cart
-                        <span class="badge bg-dark text-white ms-1 rounded-pill">0</span>
+                        <span class="badge bg-dark text-white ms-1 rounded-pill">{{cart_count|default:0}}</span>
                     </a>
                 
                 </div>
@@ -106,10 +106,11 @@
                                         <td>${{ item.product.price|floatformat:2 }}</td>
                                         <td>
                                             <div class="quantity-control">
-                                                <form action="{% url 'update_cart' product_id %}" 
+                                                <form action="{% url 'update_cart' item.product.id%}" 
                                                       method="POST" 
                                                       class="d-flex align-items-center">
                                                     {% csrf_token %}
+                                                
                                                     <button type="submit" 
                                                             name="action" 
                                                             value="decrease" 
@@ -129,7 +130,7 @@
                                         </td>
                                         <td>${{ item.subtotal|floatformat:2 }}</td>
                                         <td>
-                                            <form action="{% url 'remove_from_cart' product_id %}" 
+                                            <form action="{% url 'remove_from_cart' item.product.id %}" 
                                                   method="POST" 
                                                   class="d-inline">
                                                 {% csrf_token %}
@@ -184,19 +185,12 @@
     {% endif %}
 </div>
 
-<!-- Debug Information (Development Only) -->
-{% if debug %}
-<div class="container mb-5">
-    <div class="card">
-        <div class="card-header bg-light">
-            <h6 class="mb-0">Debug Information</h6>
-        </div>
-        <div class="card-body">
-            <pre class="mb-0"><code>{{ cart_items|pprint }}</code></pre>
-        </div>
-    </div>
-</div>
-{% endif %}
+<script>
+    // Retrieve product_ids from cookies
+    
+
+
+</script>
 </body>
 
 <!-- Bootstrap Bundle with Popper -->
