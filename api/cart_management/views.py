@@ -299,6 +299,10 @@ def clear_cart_view(request):
             return handle_response(request, None, "Cart not found", 404)
 
         clear_cart(cart["_id"])
+        messages.success(request, "Cart cleared successfully")
+        if request.content_type == "application/json":
+            return JsonResponse({"message": "Cart cleared successfully"}, status=200)
+        
         return render(request, 'cart.html')
 
     except Exception as e:

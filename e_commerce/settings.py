@@ -24,6 +24,8 @@ TEMPLATE_DIR = os.path.join(BASE_DIR2, 'templates')
 TEMPLATETAGS_DIR = os.path.join(BASE_DIR2, 'templatetags')
 STATIC_DIR = os.path.join(BASE_DIR2, 'static')
 
+STRIPE_SECRET_KEY = config('STRIPE_SECRET_KEY')
+STRIPE_PUBLIC_KEY = config('STRIPE_PUBLIC_KEY')
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/

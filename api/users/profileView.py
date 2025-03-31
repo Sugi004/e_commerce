@@ -14,7 +14,7 @@ def profile_view(request, user_id):
     user = user_collection.find_one({"_id": ObjectId(user_id)})
     
     if not user:
-        return render(request, {"error": "User not found"})
+        return render(request, "profile.html", {"error": "User not found"})
 
     # Fetch addresses for the user
     address_data = address_collection.find_one({"user_id": ObjectId(user_id)})
