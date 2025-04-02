@@ -13,7 +13,9 @@ stripe.api_key = settings.STRIPE_SECRET_KEY
 @csrf_exempt
 def checkout(request):
     """Handle checkout page rendering"""
+    
     try:
+    
         cart = get_user_cart(user_id=request.user_data["_id"]) if request.user_data else get_user_cart(session_id=request.session.session_key)
         
         if not cart:
@@ -59,8 +61,9 @@ def payment_success(request):
 
 @csrf_exempt
 def payment_cancel(request):
-    """Handle cancelled payment"""
-    return render(request, 'payment_cancel.html')
+    """Handle cancelled payment and browser back button"""
+    messages.warning(request, "Payment was cancelled. Your cart items are still saved.")
+    return redirect("checkout")
 
 @csrf_exempt
 def process_payment(request):
@@ -74,6 +77,7 @@ def process_payment(request):
         if not cart:
             messages.error(request, "No cart found")
             return redirect('checkout')
+
         cart_items = get_cart_items(cart["_id"])
         line_items = []
         
@@ -84,6 +88,7 @@ def process_payment(request):
                 discount = float(item["product"]["discount"]) / 100
                 price = price * (1 - discount)
 
+            # Create line item without description if none exists
             line_item = {
                 'price_data': {
                     'currency': 'usd',
@@ -108,7 +113,7 @@ def process_payment(request):
                 'unit_amount': 1000,
                 'product_data': {
                     'name': 'Shipping',
-                    'description': 'Standard shipping',
+                    'description': 'Standard shipping fee',
                 },
             },
             'quantity': 1,

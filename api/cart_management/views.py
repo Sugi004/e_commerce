@@ -203,7 +203,6 @@ def add_to_cart(request, product_id):
                 "cart_count": quantity,
             }, status=200)
         
-        messages.success(request, "Item added to cart successfully")
         return redirect("view_cart")
 
     except Exception as e:
@@ -249,14 +248,13 @@ def update_cart(request, product_id):
             if current_item["quantity"] >= product.get("stock", 0):
                 return handle_response(request, None, "Not enough stock available", 400)
             new_quantity = current_item["quantity"] + 1
-            message = "Quantity increased"
+            
         else:  # decrease
             new_quantity = max(1, current_item["quantity"] - 1)
-            message = "Quantity decreased"
+            
         
          # Update cart with new quantity
         update_cart_item(str(cart["_id"]), str(product_id), new_quantity)
-        messages.success(request, message)
 
         # Get updated cart data
         updated_cart_items = get_cart_items(cart["_id"])
@@ -271,7 +269,6 @@ def update_cart(request, product_id):
         if request.content_type == "application/json":
             return JsonResponse({
                 "status": 200,
-                "message": message,
                 "cart_total": round(cart_total, 2),
                 "cart_count": cart_count
             })
