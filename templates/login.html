@@ -16,23 +16,21 @@
       </div>
     </nav>
 
-    <!-- Toast Container -->
-    {% if messages %}
-    <div class="toast-container position-fixed top-0 end-0 p-3">
-      {% for message in messages %}
-      <div class="toast" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="2000">
-        <div class="toast-header {% if message.tags == 'error' %}bg-danger text-white{% else %}bg-success text-white{% endif %}">
-          <strong class="me-auto">{% if message.tags == 'error' %}Error{% else %}Success{% endif %}</strong>
-          <small>Now</small>
-          <button type="button" class="btn-close {% if message.tags == 'error' %}btn-close-white{% else %}btn-close-white{% endif %}" data-bs-dismiss="toast" aria-label="Close"></button>
-        </div>
-        <div class="toast-body">
-          {{ message }}
-        </div>
-      </div>
-      {% endfor %}
-    </div>
-    {% endif %}
+    <div class="container mt-3">
+      {% if messages %}
+          {% for message in messages %}
+              <div class="alert {% if message.tags == 'error' %}alert-danger{% elif message.tags == 'warning' %}alert-warning{% else %}alert-success{% endif %} alert-dismissible fade show" role="alert">
+                  <strong>
+                      {% if message.tags == 'error' %}Error!
+                      {% elif message.tags == 'warning' %}Warning!
+                      {% else %}Success!{% endif %}
+                  </strong>
+                  {{ message }}
+                  <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+              </div>
+          {% endfor %}
+      {% endif %}
+  </div>
 
     <!-- Centered Login Form -->
     <div class="container d-flex align-items-center justify-content-center" style="min-height: 80vh;">
@@ -71,14 +69,6 @@
         passwordField.type = this.checked ? "text" : "password";
       });
 
-      // Initialize and show toasts
-      document.addEventListener('DOMContentLoaded', function() {
-        var toastElList = [].slice.call(document.querySelectorAll('.toast'));
-        var toastList = toastElList.map(function(toastEl) {
-          return new bootstrap.Toast(toastEl);
-        });
-        toastList.forEach(toast => toast.show());
-      });
     </script>
   </body>
 </html>

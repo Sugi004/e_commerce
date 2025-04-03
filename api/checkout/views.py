@@ -16,7 +16,7 @@ def checkout(request):
     
     try:
     
-        cart = get_user_cart(user_id=request.user_data["_id"]) if request.user_data else get_user_cart(session_id=request.session.session_key)
+        cart = get_user_cart(user_id=request.user_data["user_id"]) if request.user_data else get_user_cart(session_id=request.session.session_key)
         
         if not cart:
             return render(request, 'checkout.html', {
@@ -73,7 +73,7 @@ def process_payment(request):
         return redirect('checkout')
 
     try:
-        cart = get_user_cart(user_id=request.user_data["_id"]) if request.user_data else get_user_cart(session_id=request.session.session_key)
+        cart = get_user_cart(user_id=request.user_data["user_id"]) if request.user_data else get_user_cart(session_id=request.session.session_key)
         if not cart:
             messages.error(request, "No cart found")
             return redirect('checkout')
