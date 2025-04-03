@@ -67,7 +67,28 @@
             <p class="text-muted">{% if cart_count %}{{ cart_count }} items{% else %}No items{% endif %}</p>
         </div>
     </div>
-   
+    <div class="container py-3">
+        {% if messages %}
+        <div class="toast-container position-fixed top-0 end-0 p-3">
+            {% for message in messages %}
+            <div class="toast show" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="3000">
+                <div class="toast-header {% if message.tags == 'error' %}bg-danger text-white{% elif message.tags == 'warning' %}bg-warning text-dark{% else %}bg-success text-white{% endif %}">
+                    <strong class="me-auto">
+                        {% if message.tags == 'error' %}Error
+                        {% elif message.tags == 'warning' %}Warning
+                        {% else %}Success{% endif %}
+                    </strong>
+                    <small>Now</small>
+                    <button type="button" class="btn-close {% if message.tags != 'warning' %}btn-close-white{% endif %}" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+                <div class="toast-body">
+                    {{ message }}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
     {% if cart_items %}
         <div class="row">
             <div class="col-12">
@@ -103,7 +124,18 @@
                                                 </div>
                                             </div>
                                         </td>
-                                        <td>${{ item.product.price|floatformat:2 }}</td>
+                                        <td>
+                                            {% if request.user_data %}
+                                                ${{ item.product.price|floatformat:2 }}
+                                            {% else %}
+                                            <div class="alert alert-info mt-4" role="alert">
+                                                <i class="bi bi-info-circle me-2"></i>
+                                                <a href="{% url 'login_view' %}" class="alert-link">Log in</a> or 
+                                                <a href="{% url 'sign_up' %}" class="alert-link">Sign up</a> 
+                                                to view prices
+                                            </div>
+                                            {% endif %}
+                                        </td>
                                         <td>
                                             <div class="quantity-control">
                                                 <form action="{% url 'update_cart' item.product.id%}" 
@@ -128,7 +160,18 @@
                                                 </form>
                                             </div>
                                         </td>
-                                        <td>${{ item.subtotal|floatformat:2 }}</td>
+                                        <td>
+                                            {% if request.user_data %}
+                                                ${{ item.subtotal|floatformat:2 }}
+                                            {% else %}
+                                            <div class="alert alert-info mt-4" role="alert">
+                                                <i class="bi bi-info-circle me-2"></i>
+                                                <a href="{% url 'login_view' %}" class="alert-link">Log in</a> or 
+                                                <a href="{% url 'sign_up' %}" class="alert-link">Sign up</a> 
+                                                to purchase
+                                            </div>
+                                            {% endif %}
+                                        </td>
                                         <td>
                                             <form action="{% url 'remove_from_cart' item.product.id %}" 
                                                   method="POST" 
@@ -155,13 +198,31 @@
                                     </button>
                                 </form>
                             </div>
-                            <div class="col-md-4 text-md-center my-3 my-md-0">
-                                <h5 class="mb-0">Total: ${{ cart_total|floatformat:2 }}</h5>
-                            </div>
+                            
+                          
+                                {% if request.user_data %}
+                                <div class="col-md-4 text-md-center my-3 my-md-0">
+                                    <h5 class="mb-0">Total: ${{ cart_total|floatformat:2 }}</h5>
+                                </div>
+                                {% else %}
+                                <div class="alert alert-info col-md-4 text-md-center my-3 my-md-0" role="alert">
+                                    <i class="bi bi-info-circle me-2"></i>
+                                    <a href="{% url 'login_view' %}" class="alert-link">Log in</a> or 
+                                    <a href="{% url 'sign_up' %}" class="alert-link">Sign up</a> 
+                                    to view total
+                                </div>
+                                {% endif %}
+                          
                             <div class="col-md-4 text-md-end">
-                                <a href="{% url 'checkout' %}" class="btn btn-primary">
-                                    <i class="bi bi-cart-check me-2"></i>Checkout
-                                </a>
+                                {% if request.user_data %}
+                                    <a href="{% url 'checkout' %}" class="btn btn-primary">
+                                        <i class="bi bi-cart-check me-2"></i>Checkout
+                                    </a>
+                                {% else %}
+                                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#loginModal">
+                                        <i class="bi bi-cart-check me-2"></i>Checkout
+                                    </button>
+                                {% endif %}
                             </div>
                         </div>
                         
@@ -196,14 +257,52 @@
     {% endif %}
 </div>
 
+<div class="modal fade" id="loginModal" tabindex="-1" aria-labelledby="loginModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="loginModalLabel">Login Required</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Please login to continue with checkout.</p>
+                <form action="{% url 'login_view' %}" method="POST">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Email</label>
+                        <input type="email" class="form-control" id="email" name="email" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Password</label>
+                        <input type="password" class="form-control" id="password" name="password" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Login</button>
+                </form>
+                <hr>
+                <p class="text-center">Don't have an account? <a href="{% url 'sign_up' %}">Sign up</a></p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Uncomment the Bootstrap script -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    // Retrieve product_ids from cookies
-    
-
-
+    document.addEventListener('DOMContentLoaded', function() {
+        var toastElList = [].slice.call(document.querySelectorAll('.toast'));
+        var toastList = toastElList.map(function(toastEl) {
+            var toast = new bootstrap.Toast(toastEl, {
+                autohide: true,
+                delay: 5000
+            });
+            toast.show();
+            return toast;
+        });
+    });
 </script>
 </body>
+</html>
+</body>
 
-<!-- Bootstrap Bundle with Popper -->
-{% comment %} <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script> {% endcomment %}
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></>
 </html>

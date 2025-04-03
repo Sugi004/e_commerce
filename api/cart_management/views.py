@@ -11,7 +11,7 @@ from .cart_management_db import (
 )
 from bson import ObjectId, errors
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from ..mongoDb import get_collection
 
 product_collection = get_collection("products")
@@ -49,7 +49,7 @@ def view_cart(request):
     try:
         # Get cart based on user authentication
         if request.user_data:
-            cart = get_user_cart(user_id=request.user_data["_id"])
+            cart = get_user_cart(user_id=request.user_data["user_id"])
         else:
             cart = get_user_cart(session_id=request.session.session_key)
 
@@ -60,6 +60,36 @@ def view_cart(request):
                 "cart_count": 0
             })
 
+        if not request.user_data and cart.get("session_id"):
+            if cart.get("expires_at"):
+                expires_at = cart["expires_at"]
+                current_time = datetime.utcnow()
+                
+                if current_time >= expires_at:
+                    # Cart has expired
+                    clear_cart(cart["_id"])
+                    messages.warning(request, "Your cart has expired. Items have been cleared.")
+                    return render(request, 'cart.html', {
+                        "cart_items": [],
+                        "cart_total": 0,
+                        "cart_count": 0
+                    })
+                else:
+                    # Calculate time remaining
+                    time_remaining = expires_at - current_time
+                    hours_remaining = time_remaining.total_seconds() / 3600
+                    
+                    if hours_remaining < 4:  # Warning when less than 4 hours left
+                        messages.warning(
+                            request,
+                            f"Your cart will expire in {int(hours_remaining)} hours. Please sign up or log in to keep your items."
+                        )
+                    else:
+                        # Always show the initial message for guest carts
+                        messages.info(
+                            request,
+                            "Guest carts expire after 24 hours. Please sign up or log in to keep your items permanently."
+                        )
         # Get cart items with product details
         cart_items = get_cart_items(cart["_id"])
         
@@ -124,14 +154,17 @@ def add_to_cart(request, product_id):
             return handle_response(request, None, "Product out of stock", 400)
 
         # 3. Get or create cart with error handling
+        
         try:
-            if request.user_data:
-                cart = get_user_cart(user_id=request.user_data["_id"])
+            if hasattr(request, 'user_data') and request.user_data:
+                user_id = request.user_data.get('user_id')
+                if not user_id:
+                    return handle_response(request, None, "Invalid user data", 400)
+                
+                cart = get_user_cart(user_id=user_id)
                 if not cart:
-                    cart_id = create_cart(user_id=request.user_data["_id"])
-                    cart = get_user_cart(user_id=request.user_data["_id"])
-                    if not cart:
-                        raise Exception("Failed to create cart")
+                    cart_id = create_cart(user_id=user_id)
+                    cart = get_user_cart(user_id=user_id)
             else:
                 # Handle guest cart
                 if not request.session.session_key:
@@ -140,8 +173,8 @@ def add_to_cart(request, product_id):
                 if not cart:
                     cart_id = create_cart(session_id=request.session.session_key)
                     cart = get_user_cart(session_id=request.session.session_key)
-                    if not cart:
-                        raise Exception("Failed to create guest cart")
+            if not cart:
+                raise Exception("Failed to create guest cart")
         except Exception as e:
             return handle_response(request, None, f"Cart creation failed: {str(e)}", 500)
 
@@ -261,9 +294,6 @@ def update_cart(request, product_id):
         cart_total = sum(item["subtotal"] for item in updated_cart_items)
         cart_count = sum(item["quantity"] for item in updated_cart_items)
 
-        
-
-
         response = redirect("view_cart")
 
         if request.content_type == "application/json":
@@ -288,7 +318,7 @@ def clear_cart_view(request):
     try:
         # Get cart
         if request.user_data:
-            cart = get_user_cart(user_id=request.user_data["_id"])
+            cart = get_user_cart(user_id=request.user_data["user_id"])
         else:
             cart = get_user_cart(session_id=request.session.session_key)
 

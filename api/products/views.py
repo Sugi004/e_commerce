@@ -42,15 +42,18 @@ def render_products(request):
             page_obj = paginator.page(1)
 
         cart_count = 0
-        if request.user_data:
-            cart = get_user_cart(user_id=request.user_data["_id"])
+        cart = None
+        if hasattr(request, 'user_data') and request.user_data:
+            user_id = request.user_data.get('_id')
+            if user_id:
+                cart = get_user_cart(user_id=user_id)
         else:
+            if not request.session.session_key:
+                request.session.create()
             cart = get_user_cart(session_id=request.session.session_key)
             
         if cart:
             cart_items = get_cart_items(cart["_id"])
-
-           
             cart_count = len(cart_items)
 
 
