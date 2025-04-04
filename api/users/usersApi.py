@@ -10,6 +10,8 @@ from decouple import config
 from datetime import datetime
 from marshmallow import ValidationError
 from bson import ObjectId
+from ..cart_management.cart_management_db import transfer_guest_cart
+
 
 users_collection = get_collection("users")
 
@@ -101,9 +103,13 @@ def create_user(request):
                 else:
                     messages.error(request, error_msg)
                     return redirect("sign_up")
+            old_session_id = request.session.session_key
+
 
             validated_data["password"] = make_password(validated_data["password"])
             validated_data["created_at"] = datetime.utcnow()
+            if old_session_id:
+                validated_data["session_id"] = old_session_id
             users_collection.insert_one(validated_data)
             success_msg = (
                 "User created successfully"

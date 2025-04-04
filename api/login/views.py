@@ -103,7 +103,6 @@ def logout_view(request):
     request.session.flush()
     response = redirect('render_products')
     response.delete_cookie('access_token')
-    messages.success(request, "Logged out successfully")
     return response
 
 def sign_up(request):

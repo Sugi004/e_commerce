@@ -52,6 +52,9 @@ def view_cart(request):
             cart = get_user_cart(user_id=request.user_data["user_id"])
         else:
             cart = get_user_cart(session_id=request.session.session_key)
+        
+        
+        print(f"Cart retrieved: {cart}")  # Debug print to check cart details
 
         if not cart:
             return render(request, 'cart.html', {
@@ -60,7 +63,7 @@ def view_cart(request):
                 "cart_count": 0
             })
 
-        if not request.user_data and cart.get("session_id"):
+        if not request.user_data:
             if cart.get("expires_at"):
                 expires_at = cart["expires_at"]
                 current_time = datetime.utcnow()
@@ -92,6 +95,8 @@ def view_cart(request):
                         )
         # Get cart items with product details
         cart_items = get_cart_items(cart["_id"])
+
+        print(cart_items)  # Debug print to check cart items
         
         # Calculate totals and apply discounts
         cart_total = 0
