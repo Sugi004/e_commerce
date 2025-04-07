@@ -6,18 +6,55 @@ import stripe
 from django.conf import settings
 from django.urls import reverse
 from django.contrib import messages
+from django.core.mail import send_mail
+from django.contrib import messages
+from api.mongoDb import get_collection
+from bson import ObjectId
+import uuid
+from datetime import datetime, timedelta
 
 # Initialize Stripe
 stripe.api_key = settings.STRIPE_SECRET_KEY
+users_collection = get_collection("users")
+
+@csrf_exempt
+def send_verification_email(email, verification_token):
+    """Send verification email for checkout"""
+    try:
+        verification_url = f"{settings.SITE_URL}{reverse('verify_email', args=[verification_token])}"
+        timeout = settings.EMAIL_VERIFICATION_TIMEOUT
+        send_mail(
+            subject='Verify Email to Complete Your Purchase - GlobalTech',
+            message=f'''Please verify your email to complete your purchase.
+            
+Click here to verify: {verification_url}
+            
+This link expires in {timeout} minutes.''',
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[email],
+            fail_silently=False
+        )
+        return True
+    except Exception as e:
+        print(f"Error sending verification email: {str(e)}")
+        return False
 
 @csrf_exempt
 def checkout(request):
     """Handle checkout page rendering"""
-    
     try:
-    
-        cart = get_user_cart(user_id=request.user_data["user_id"]) if request.user_data else get_user_cart(session_id=request.session.session_key)
-        
+        if not request.user_data:
+            messages.warning(request, "Please login to checkout")
+            return redirect('login_view')
+
+        # Verify email before proceeding
+        user = users_collection.find_one({"_id": ObjectId(request.user_data["user_id"])})
+        if not user:
+            messages.error(request, "User not found")
+            return redirect('view_cart')
+
+        # Get cart and process items
+        cart = get_user_cart(user_id=request.user_data["user_id"])
         if not cart:
             return render(request, 'checkout.html', {
                 "error": "No cart found",
@@ -25,6 +62,27 @@ def checkout(request):
                 "cart_total": 0
             })
 
+        # Check verification status
+        if not user.get("is_verified"):
+            # Generate verification token
+            verification_token = str(uuid.uuid4())
+            users_collection.update_one(
+                {"_id": user["_id"]},
+                {
+                    "$set": {
+                        "verification_token": verification_token,
+                        "verification_token_expires": datetime.utcnow() + timedelta(minutes=settings.EMAIL_VERIFICATION_TIMEOUT)
+                    }
+                }
+            )
+            
+            if send_verification_email(user["email"], verification_token):
+                messages.info(request, "Please verify your email to complete checkout. Verification link sent.")
+            else:
+                messages.error(request, "Failed to send verification email. Please try again.")
+            return redirect('view_cart')
+
+        # Process cart for verified users
         cart_items = get_cart_items(cart["_id"])
         cart_total = 0
 
@@ -45,7 +103,8 @@ def checkout(request):
             "cart_total": round(cart_total, 2),
             "shipping_cost": 10.00,
             "total_with_shipping": round(cart_total + 10.00, 2),
-            "stripe_public_key": settings.STRIPE_PUBLIC_KEY
+            "stripe_public_key": settings.STRIPE_PUBLIC_KEY,
+            "user": user  # Add user to context for template
         }
 
         return render(request, 'checkout.html', context)

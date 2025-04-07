@@ -115,15 +115,15 @@ def delete_product(request, product_id):
             product_collection = get_collection("products")
 
             # Find the product by ID
-            product = product_collection.find_one({"_id": ObjectId(product_id)})
-            print(product)
+            product = product_collection.find_one({"user_id": ObjectId(product_id)})
+
 
             if not product:
                 return JsonResponse({"error": "Product not found"}, status=404)
 
             # Delete the product
-            result = product_collection.delete_one({"_id": ObjectId(product_id)})
-
+            result = product_collection.delete_one({"user_id": ObjectId(product_id)})
+            
             if result.deleted_count == 0:
                 return JsonResponse({"error": "Failed to delete product"}, status=500)
 

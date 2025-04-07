@@ -30,6 +30,7 @@ class UserSchema(Schema):
     email = fields.Email(required=True)
     password = fields.Str(required=True, load_only=True)  # Never return password
     role = fields.Str(required=False, missing="customer")
+    is_admin = fields.Bool(required=False, missing=False)
     is_active = fields.Bool(default=True, missing=True)
     created_at = fields.DateTime(required=False)
     updated_at = fields.DateTime(required=False)

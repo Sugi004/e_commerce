@@ -1,3 +1,6 @@
+from ..checkout.views import send_verification_email
+from django.conf import settings
+import uuid
 from django.http import JsonResponse
 from django.shortcuts import redirect
 from django.contrib import messages
@@ -7,11 +10,10 @@ from django.contrib.auth.hashers import make_password
 import json
 import jwt
 from decouple import config
-from datetime import datetime
+from datetime import datetime, timedelta
 from marshmallow import ValidationError
 from bson import ObjectId
-from ..cart_management.cart_management_db import transfer_guest_cart
-
+from django.views.decorators.csrf import csrf_exempt
 
 users_collection = get_collection("users")
 
@@ -104,12 +106,13 @@ def create_user(request):
                     messages.error(request, error_msg)
                     return redirect("sign_up")
             old_session_id = request.session.session_key
-
-
+            
             validated_data["password"] = make_password(validated_data["password"])
             validated_data["created_at"] = datetime.utcnow()
+            
             if old_session_id:
-                validated_data["session_id"] = old_session_id
+                validated_data["session_id"] = old_session_id\
+
             users_collection.insert_one(validated_data)
             success_msg = (
                 "User created successfully"
@@ -237,4 +240,88 @@ def delete_user(request, user_id):
     else:
         messages.error(request, error_msg)
         return redirect("render_products")
+
+def verify_email(request, token):
+    """Verify user email address"""
+    try:
+        # Find user with valid verification token
+        user = users_collection.find_one({
+            "verification_token": token,
+            "verification_token_expires": {"$gt": datetime.utcnow()}
+        })
+        
+        if not user:
+            if is_json_request(request):
+                return JsonResponse({"error": "Invalid or expired verification token"}, status=400)
+            messages.error(request, "Invalid or expired verification token")
+            return redirect("checkout")
+            
+        # Update user verification status
+        users_collection.update_one(
+            {"_id": user["_id"]},
+            {
+                "$set": {
+                    "is_verified": True,
+                    "email_verified_at": datetime.utcnow()
+                },
+                "$unset": {
+                    "verification_token": "",
+                    "verification_token_expires": ""
+                }
+            }
+        )
+        
+        if is_json_request(request):
+            return JsonResponse({"message": "Email verified successfully"}, status=200)
+        
+        messages.success(request, "Email verified successfully. You can now place orders.")
+        return redirect("checkout")
+        
+    except Exception as e:
+        if is_json_request(request):
+            return JsonResponse({"error": str(e)}, status=500)
+        messages.error(request, f"Verification failed: {str(e)}")
+        return redirect("checkout")
+
+@csrf_exempt
+def resend_verification(request):
+    """Resend verification email to user"""
+    try:
+        if not request.user_data:
+            messages.error(request, "Please login to continue")
+            return redirect('login_view')
+
+        user = users_collection.find_one({"_id": ObjectId(request.user_data["user_id"])})
+        
+        if not user:
+            messages.error(request, "User not found")
+            return redirect('checkout')
+            
+        if user.get("is_verified"):
+            messages.info(request, "Your email is already verified")
+            return redirect('checkout')
+
+        # Generate new verification token
+        verification_token = str(uuid.uuid4())
+        users_collection.update_one(
+            {"_id": user["_id"]},
+            {
+                "$set": {
+                    "verification_token": verification_token,
+                    "verification_token_expires": datetime.utcnow() + timedelta(minutes=settings.EMAIL_VERIFICATION_TIMEOUT)
+                }
+            }
+        )
+        
+        # Send verification email
+        if send_verification_email(user["email"], verification_token):
+            messages.success(request, "Verification email sent. Please check your inbox.")
+        else:
+            messages.error(request, "Failed to send verification email. Please try again.")
+            
+        return redirect('checkout')
+
+    except Exception as e:
+        messages.error(request, f"Error: {str(e)}")
+        return redirect('checkout')
 

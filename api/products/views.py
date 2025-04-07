@@ -43,19 +43,33 @@ def render_products(request):
 
         cart_count = 0
         cart = None
+
+        # Debug logging
+        logger.debug(f"User data: {getattr(request, 'user_data', None)}")
+        logger.debug(f"Session key: {request.session.session_key}")
+
+        # Handle authenticated user
         if hasattr(request, 'user_data') and request.user_data:
-            user_id = request.user_data.get('_id')
+            user_id = request.user_data.get('user_id')  # Changed from '_id' to 'user_id'
+            logger.debug(f"Authenticated user_id: {user_id}")
             if user_id:
-                cart = get_user_cart(user_id=user_id)
-        else:
+                cart = get_user_cart(user_id=str(user_id))  # Ensure user_id is string
+                logger.debug(f"Authenticated user cart: {cart}")
+        
+        # Handle guest user
+        if not cart:
             if not request.session.session_key:
                 request.session.create()
+                request.session.save()  # Ensure session is saved
+            logger.debug(f"Guest session key: {request.session.session_key}")
             cart = get_user_cart(session_id=request.session.session_key)
-            
+            logger.debug(f"Guest cart: {cart}")
+
+        # Calculate cart count
         if cart:
             cart_items = get_cart_items(cart["_id"])
             cart_count = len(cart_items)
-
+            logger.debug(f"Cart count: {cart_count}")
 
         context = {
             "products": page_obj,

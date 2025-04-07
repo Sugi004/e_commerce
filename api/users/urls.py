@@ -1,5 +1,5 @@
 from django.urls import path
-from .usersApi import update_user, delete_user
+from .usersApi import update_user, delete_user, verify_email, resend_verification
 from .address import add_address
 from .profileView import profile_view
 from .views import render_users_admin, edit_user
@@ -12,4 +12,6 @@ urlpatterns = [
     path('<str:user_id>', profile_view, name='profile_view'),
     path('admin/users/', render_users_admin, name='render_users_admin'),
     path('edit/<str:user_id>/', edit_user, name='edit_user'),
+    path('verify-email/<str:token>/', verify_email, name='verify_email'),
+    path('resend-verification/', resend_verification, name='resend_verification'),
 ]
