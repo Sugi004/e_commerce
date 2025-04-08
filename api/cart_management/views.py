@@ -57,7 +57,9 @@ def view_cart(request):
             return render(request, 'cart.html', {
                 "cart_items": [], 
                 "cart_total": 0,
-                "cart_count": 0
+                "cart_count": 0,
+                "discount_amount":0,
+                "total_with_discount": 0,
             })
 
         if not request.user_data:
@@ -72,7 +74,10 @@ def view_cart(request):
                     return render(request, 'cart.html', {
                         "cart_items": [],
                         "cart_total": 0,
-                        "cart_count": 0
+                        "cart_count": 0,
+                        "discount_amount":0,
+                        "total_with_discount": 0,
+
                     })
                 else:
                     # Calculate time remaining
@@ -114,11 +119,17 @@ def view_cart(request):
             item["subtotal"] = price * quantity
             cart_total += item["subtotal"]
             cart_count = len(cart_items)
-            
+        
+        if cart_total > 100:
+            discount = cart_total * 0.1  # 10% discount for orders over $100
+            total_with_discount = cart_total - discount
+
         context = {
             "cart_items": cart_items,  
             "cart_total": round(cart_total, 2),
             "cart_count": cart_count, 
+            "discount_amount": round(discount, 2),
+            "total_with_discount": round(total_with_discount, 2),
         }
         response = render(request, 'cart.html', context)
         

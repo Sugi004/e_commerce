@@ -18,10 +18,10 @@ stripe.api_key = settings.STRIPE_SECRET_KEY
 users_collection = get_collection("users")
 
 @csrf_exempt
-def send_verification_email(email, verification_token):
+def send_verification_email(email, verification_token, user_id):
     """Send verification email for checkout"""
     try:
-        verification_url = f"{settings.SITE_URL}{reverse('verify_email', args=[verification_token])}"
+        verification_url = f"{settings.SITE_URL}{reverse('verify_email', args=[verification_token, user_id])}"
         timeout = settings.EMAIL_VERIFICATION_TIMEOUT
         send_mail(
             subject='Verify Email to Complete Your Purchase - GlobalTech',
@@ -43,18 +43,22 @@ This link expires in {timeout} minutes.''',
 def checkout(request):
     """Handle checkout page rendering"""
     try:
-        if not request.user_data:
+        # Check for user_data in request or session
+        user_data = getattr(request,  'user_data', None) or request.session.get('user_data')
+        print("Session data in checkout:", user_data)
+
+        if not user_data:
             messages.warning(request, "Please login to checkout")
             return redirect('login_view')
 
         # Verify email before proceeding
-        user = users_collection.find_one({"_id": ObjectId(request.user_data["user_id"])})
+        user = users_collection.find_one({"_id": ObjectId(user_data["user_id"])})
         if not user:
             messages.error(request, "User not found")
             return redirect('view_cart')
 
         # Get cart and process items
-        cart = get_user_cart(user_id=request.user_data["user_id"])
+        cart = get_user_cart(user_id=user_data["user_id"])
         if not cart:
             return render(request, 'checkout.html', {
                 "error": "No cart found",
@@ -62,9 +66,8 @@ def checkout(request):
                 "cart_total": 0
             })
 
-        # Check verification status
+        # Verify email and send verification link if not verified
         if not user.get("is_verified"):
-            # Generate verification token
             verification_token = str(uuid.uuid4())
             users_collection.update_one(
                 {"_id": user["_id"]},
@@ -75,8 +78,8 @@ def checkout(request):
                     }
                 }
             )
-            
-            if send_verification_email(user["email"], verification_token):
+
+            if send_verification_email(user["email"], verification_token, str(user["_id"])):
                 messages.info(request, "Please verify your email to complete checkout. Verification link sent.")
             else:
                 messages.error(request, "Failed to send verification email. Please try again.")
@@ -90,11 +93,11 @@ def checkout(request):
             product = item["product"]
             quantity = item["quantity"]
             price = float(product.get("price", 0))
-            
+
             if product.get("discount"):
                 discount = float(product["discount"]) / 100
                 price = price * (1 - discount)
-                
+
             item["subtotal"] = price * quantity
             cart_total += item["subtotal"]
 
@@ -115,8 +118,50 @@ def checkout(request):
 
 @csrf_exempt
 def payment_success(request):
-    """Handle successful payment"""
-    return render(request, 'payment_success.html')
+    """Handle successful payment and add loyalty points"""
+    try:
+        # Retrieve user data
+        user_data = getattr(request, 'user_data', None) or request.session.get('user_data')
+        if not user_data:
+            messages.error(request, "User not found. Please log in again.")
+            return redirect('login_view')
+
+        user = users_collection.find_one({"_id": ObjectId(user_data["user_id"])})
+        if not user:
+            messages.error(request, "User not found.")
+            return redirect('checkout')
+
+        # Retrieve cart and calculate total
+        cart = get_user_cart(user_id=user_data["user_id"])
+        if not cart:
+            messages.error(request, "No cart found.")
+            return redirect('checkout')
+
+        cart_items = get_cart_items(cart["_id"])
+        cart_total = sum(item["subtotal"] for item in cart_items)
+
+        # Apply 10% discount if cart total exceeds $100
+        if cart_total > 100:
+            cart_total -= cart_total * 0.1
+
+        # Add loyalty points (2% of cart total)
+        loyalty_points = round(cart_total * 0.02, 2)
+        users_collection.update_one(
+            {"_id": user["_id"]},
+            {"$inc": {"loyalty_points": loyalty_points}}
+        )
+
+        # Clear the cart after successful payment
+        cart_items_collection = get_collection("cart_items")
+        cart_items_collection.delete_many({"cart_id": cart["_id"]})
+
+        messages.success(request, f"Payment successful! You earned {loyalty_points} loyalty points.")
+        return render(request, 'payment_success.html', {"loyalty_points": loyalty_points})
+
+    except Exception as e:
+        print(f"Error in payment_success: {str(e)}")
+        messages.error(request, "An error occurred while processing your payment.")
+        return redirect('checkout')
 
 @csrf_exempt
 def payment_cancel(request):
@@ -139,7 +184,19 @@ def process_payment(request):
 
         cart_items = get_cart_items(cart["_id"])
         line_items = []
+        cart_total = sum(item["subtotal"] for item in cart_items)
+
+        # Apply 10% discount for cart total over $100
+        if cart_total > 100:
+            cart_total -= cart_total * 0.1 
         
+        # Add loyalty points (2% of cart total)
+        loyalty_points = round(cart_total * 0.02, 2)
+        users_collection.update_one(
+            {"_id": user["_id"]},
+            {"$inc": {"loyalty_points": loyalty_points}}
+        )
+
         # Prepare line items for Stripe
         for item in cart_items:
             price = float(item["product"].get("price", 0))

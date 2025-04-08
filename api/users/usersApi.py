@@ -2,7 +2,7 @@ from ..checkout.views import send_verification_email
 from django.conf import settings
 import uuid
 from django.http import JsonResponse
-from django.shortcuts import redirect
+from django.shortcuts import redirect, render
 from django.contrib import messages
 from api.mongoDb import get_collection
 from .userSchema import UserSchema
@@ -82,22 +82,23 @@ def create_user(request):
 
             schema = UserSchema()
             validated_data = schema.load(data)
-            validated_data["role"] = validated_data.get("role", "customer")
+            validated_data.update({
+            "role": validated_data.get("role", "customer"),
+            "password": make_password(validated_data["password"]),
+            "created_at": datetime.utcnow(),
+            "loyalty_points": 0,
+            "session_id": request.session.session_key if request.session.session_key else None
+        })
+             # Check for duplicate email or name
+            if users_collection.find_one({"email": validated_data["email"]}) or users_collection.find_one({"name": validated_data["name"]}):
+                error_msg = "Email or name already exists"
+                if is_json_request(request):
+                    return JsonResponse({"error": error_msg}, status=400)
+                else:
+                    messages.error(request, error_msg)
+                    return redirect("sign_up")
 
-            if users_collection.find_one({"email": validated_data["email"]}):
-                error_msg = "Email already exists"
-                if is_json_request(request):
-                    return JsonResponse({"error": error_msg}, status=400)
-                else:
-                    messages.error(request, error_msg)
-                    return redirect("sign_up")
-            if users_collection.find_one({"name": validated_data["name"]}):
-                error_msg = "Name already exists"
-                if is_json_request(request):
-                    return JsonResponse({"error": error_msg}, status=400)
-                else:
-                    messages.error(request, error_msg)
-                    return redirect("sign_up")
+            # Restrict admin creation to a maximum of 3
             if validated_data["role"] == "admin" and users_collection.count_documents({"role": "admin"}) >= 3:
                 error_msg = "Only a maximum of 3 admin users are allowed"
                 if is_json_request(request):
@@ -107,8 +108,6 @@ def create_user(request):
                     return redirect("sign_up")
             old_session_id = request.session.session_key
             
-            validated_data["password"] = make_password(validated_data["password"])
-            validated_data["created_at"] = datetime.utcnow()
             
             if old_session_id:
                 validated_data["session_id"] = old_session_id\
@@ -241,9 +240,14 @@ def delete_user(request, user_id):
         messages.error(request, error_msg)
         return redirect("render_products")
 
-def verify_email(request, token):
+def verify_email(request, token, user_id):
     """Verify user email address"""
     try:
+
+        if not token or not user_id:
+            messages.error(request, "Invalid verification link")
+            return redirect('login_view')
+
         # Find user with valid verification token
         user = users_collection.find_one({
             "verification_token": token,
@@ -254,7 +258,7 @@ def verify_email(request, token):
             if is_json_request(request):
                 return JsonResponse({"error": "Invalid or expired verification token"}, status=400)
             messages.error(request, "Invalid or expired verification token")
-            return redirect("checkout")
+            return render(request, 'error.html')
             
         # Update user verification status
         users_collection.update_one(
@@ -262,7 +266,6 @@ def verify_email(request, token):
             {
                 "$set": {
                     "is_verified": True,
-                    "email_verified_at": datetime.utcnow()
                 },
                 "$unset": {
                     "verification_token": "",
@@ -274,8 +277,16 @@ def verify_email(request, token):
         if is_json_request(request):
             return JsonResponse({"message": "Email verified successfully"}, status=200)
         
-        messages.success(request, "Email verified successfully. You can now place orders.")
-        return redirect("checkout")
+        request.session['user_data'] = {
+            "user_id": str(user["_id"]),
+            "email": user["email"],
+            "role": user.get("role", "customer")
+        }
+
+        request.session.save()
+        
+        messages.success(request, "Email verified successfully. You can now complete your purchase.")
+        return redirect('checkout')
         
     except Exception as e:
         if is_json_request(request):

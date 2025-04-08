@@ -196,7 +196,11 @@
                           
                                 {% if request.user_data %}
                                 <div class="col-md-4 text-md-center my-3 my-md-0">
-                                    <h5 class="mb-0">Total: ${{ cart_total|floatformat:2 }}</h5>
+                                    <h5 class="mb-0">Cart Total: ${{ cart_total|floatformat:2 }}</h5>
+                                    {% if discount_amount > 0 %}
+                                        <p class="text-success mb-0">Discount Applied: -${{ discount_amount|floatformat:2 }}</p>
+                                        <h5 class="mb-0">Total After Discount: ${{ total_with_discount|floatformat:2 }}</h5>
+                                    {% endif %}
                                 </div>
                                 {% else %}
                                 <div class="alert alert-info col-md-4 text-md-center my-3 my-md-0" role="alert">

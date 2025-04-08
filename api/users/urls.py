@@ -12,6 +12,6 @@ urlpatterns = [
     path('<str:user_id>', profile_view, name='profile_view'),
     path('admin/users/', render_users_admin, name='render_users_admin'),
     path('edit/<str:user_id>/', edit_user, name='edit_user'),
-    path('verify-email/<str:token>/', verify_email, name='verify_email'),
+    path('verify-email/<str:token>/<str:user_id>/', verify_email, name='verify_email'),
     path('resend-verification/', resend_verification, name='resend_verification'),
 ]
