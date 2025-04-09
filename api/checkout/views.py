@@ -41,15 +41,32 @@ This link expires in {timeout} minutes.''',
 
 @csrf_exempt
 def checkout(request):
-    """Handle checkout page rendering"""
+    COUPONS = {
+    "SAVE10": 10,
+    "FLAT50": 50,
+    "FREESHIP": 0,
+    "WELCOME20": 20,
+    "SUMMER15": 15,
+    "WINTER25": 25,
+    "BLACKFRIDAY": 30,
+    "CYBERMONDAY": 40,
+    "HOLIDAY50": 50,
+    "LOYALTY5": 5,
+    }
     try:
         # Check for user_data in request or session
-        user_data = getattr(request,  'user_data', None) or request.session.get('user_data')
-        print("Session data in checkout:", user_data)
+        session_id = request.GET.get('session_id')
+        if session_id:
+            checkout_session = stripe.checkout.Session.retrieve(session_id)
+            print("checkout_session:", checkout_session)
+        # # Retrieve user_id from client_reference_id
+        user_id = checkout_session.get("client_reference_id")
+
+        user_data = getattr(request,  'user_data', None) or request.session.get('user_data') or {"user_id": user_id}
 
         if not user_data:
-            messages.warning(request, "Please login to checkout")
-            return redirect('login_view')
+            messages.warning(request, "Payment was cancelled. Please log in to view your cart.")
+            return redirect("login_view")
 
         # Verify email before proceeding
         user = users_collection.find_one({"_id": ObjectId(user_data["user_id"])})
@@ -100,14 +117,45 @@ def checkout(request):
 
             item["subtotal"] = price * quantity
             cart_total += item["subtotal"]
+        
+        # Apply 10% discount for cart total over $100
+        if cart_total > 100:
+            cart_total -= cart_total * 0.1 
+
+        # Calculate shipping cost, free shipping for orders more than $50
+        shipping_cost = 0 if cart_total > 50 else 10.00
+
+        # Handle coupon code
+        coupon_code = request.POST.get("coupon_code", "").strip().upper()
+        coupon_discount = 0
+        if coupon_code:
+            if coupon_code in COUPONS:
+                discount_value = COUPONS[coupon_code]
+                if discount_value > 0:
+                    if discount_value < 100:  # Percentage discount
+                        coupon_discount = cart_total * (discount_value / 100)
+                    else:  # Flat discount
+                        coupon_discount = discount_value
+                    messages.success(request, f"Coupon '{coupon_code}' applied successfully!")
+                else:
+                    # Handle free shipping coupon
+                    shipping_cost = 0
+                    messages.success(request, f"Coupon '{coupon_code}' applied successfully! Free shipping applied.")
+            else:
+                messages.error(request, "Invalid coupon code.")
+        
+        # Ensure discount does not exceed cart total
+        coupon_discount = min(coupon_discount, cart_total)
+        cart_total -= coupon_discount
 
         context = {
             "cart_items": cart_items,
             "cart_total": round(cart_total, 2),
-            "shipping_cost": 10.00,
-            "total_with_shipping": round(cart_total + 10.00, 2),
+            "shipping_cost": round(shipping_cost, 2),
+            "total_with_shipping": round(cart_total + shipping_cost, 2),
             "stripe_public_key": settings.STRIPE_PUBLIC_KEY,
-            "user": user  # Add user to context for template
+            "user": user,
+            "coupon_discount": round(coupon_discount, 2),
         }
 
         return render(request, 'checkout.html', context)
@@ -118,7 +166,6 @@ def checkout(request):
 
 @csrf_exempt
 def payment_success(request):
-    """Handle successful payment and add loyalty points"""
     try:
         # Retrieve user data
         user_data = getattr(request, 'user_data', None) or request.session.get('user_data')
@@ -165,87 +212,72 @@ def payment_success(request):
 
 @csrf_exempt
 def payment_cancel(request):
-    """Handle cancelled payment and browser back button"""
-    messages.warning(request, "Payment was cancelled. Your cart items are still saved.")
-    return redirect("checkout")
+    try:
+        # Retrieve the session_id from the query parameters
+        session_id = request.GET.get('session_id')
+        # Retrieve the Stripe session
+        checkout_session = stripe.checkout.Session.retrieve(session_id)
+
+        # Retrieve user_id from client_reference_id
+        user_id = checkout_session.get("client_reference_id")
+
+        user = users_collection.find_one({"_id": ObjectId(user_id)})
+
+        # Notify the user that the payment was cancelled
+        messages.warning(request, f"Payment was cancelled. Your cart items are still saved.")
+        return redirect(f"/checkout/?session_id={session_id}")
+
+    except Exception as e:
+        print(f"Error in payment_cancel: {str(e)}")
+        messages.error(request, "An unexpected error occurred. Please try again.")
+        return redirect("checkout")
 
 @csrf_exempt
 def process_payment(request):
-    """Handle payment processing through Stripe"""
     if request.method != "POST":
         messages.error(request, "Invalid request method")
         return redirect('checkout')
 
     try:
+        cart_total = float(request.POST.get("cart_total", 0))
+        shipping_cost = float(request.POST.get("shipping_cost", 0))
+        coupon_discount = float(request.POST.get("coupon_discount", 0))
+
         cart = get_user_cart(user_id=request.user_data["user_id"]) if request.user_data else get_user_cart(session_id=request.session.session_key)
         if not cart:
             messages.error(request, "No cart found")
             return redirect('checkout')
 
         cart_items = get_cart_items(cart["_id"])
-        line_items = []
-        cart_total = sum(item["subtotal"] for item in cart_items)
+       
 
-        # Apply 10% discount for cart total over $100
-        if cart_total > 100:
-            cart_total -= cart_total * 0.1 
+        total = cart_total - coupon_discount + shipping_cost
         
-        # Add loyalty points (2% of cart total)
-        loyalty_points = round(cart_total * 0.02, 2)
-        users_collection.update_one(
-            {"_id": user["_id"]},
-            {"$inc": {"loyalty_points": loyalty_points}}
-        )
-
-        # Prepare line items for Stripe
-        for item in cart_items:
-            price = float(item["product"].get("price", 0))
-            if item["product"].get("discount"):
-                discount = float(item["product"]["discount"]) / 100
-                price = price * (1 - discount)
-
-            # Create line item without description if none exists
-            line_item = {
-                'price_data': {
-                    'currency': 'usd',
-                    'unit_amount': int(price * 100),
-                    'product_data': {
-                        'name': item["product"]["name"],
-                    },
-                },
-                'quantity': item["quantity"],
-            }
-
-            # Only add description if it exists
-            if item["product"].get("description"):
-                line_item['price_data']['product_data']['description'] = item["product"]["description"]
-
-            line_items.append(line_item)
-
-        # Add shipping cost
-        line_items.append({
+        line_items = [{
             'price_data': {
                 'currency': 'usd',
-                'unit_amount': 1000,
+                'unit_amount': int(total * 100),
                 'product_data': {
-                    'name': 'Shipping',
-                    'description': 'Standard shipping fee',
+                    'name': 'Order Total',
+                    'description': 'Includes all items, discounts, and shipping',
                 },
             },
             'quantity': 1,
-        })
+        }]
+
 
         # Create Stripe checkout session
         checkout_session = stripe.checkout.Session.create(
             payment_method_types=['card'],
             line_items=line_items,
             mode='payment',
-            success_url=request.build_absolute_uri(reverse('payment_success')),
-            cancel_url=request.build_absolute_uri(reverse('payment_cancel')),
+            success_url=request.build_absolute_uri(reverse('payment_success')) + '?session_id={CHECKOUT_SESSION_ID}',
+            cancel_url=request.build_absolute_uri(reverse('payment_cancel')) + '?session_id={CHECKOUT_SESSION_ID}',
             billing_address_collection='required',
             shipping_address_collection={
                 'allowed_countries': ['US'],
             },
+            client_reference_id=request.user_data["user_id"],
         )
 
         if not checkout_session or not checkout_session.id:

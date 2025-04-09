@@ -9,12 +9,16 @@ from .cart_management_db import (
     get_cart_items,
     clear_cart
 )
+from django.core.mail import send_mail
+from decouple import config
 from bson import ObjectId, errors
 import json
 from datetime import datetime, timedelta
 from ..mongoDb import get_collection
 
 product_collection = get_collection("products")
+carts_collection = get_collection("carts")
+user_collection = get_collection("users")
 
 def handle_response(request, success_message, error_message, status=200, redirect_url=None):
     """Helper function to handle JSON responses and messages"""
@@ -60,6 +64,7 @@ def view_cart(request):
                 "cart_count": 0,
                 "discount_amount":0,
                 "total_with_discount": 0,
+                "remaining_for_free_shipping": 50,
             })
 
         if not request.user_data:
@@ -77,6 +82,7 @@ def view_cart(request):
                         "cart_count": 0,
                         "discount_amount":0,
                         "total_with_discount": 0,
+                        "remaining_for_free_shipping": 50,
 
                     })
                 else:
@@ -91,7 +97,7 @@ def view_cart(request):
                         )
                     else:
                         # Always show the initial message for guest carts
-                        messages.info(
+                        messages.warning(
                             request,
                             "Guest carts expire after 24 hours. Please sign up or log in to keep your items permanently."
                         )
@@ -101,6 +107,8 @@ def view_cart(request):
         # Calculate totals and apply discounts
         cart_total = 0
         cart_count = 0
+        discount = 0
+        total_with_discount = 0
         
         for item in cart_items:
 
@@ -113,8 +121,8 @@ def view_cart(request):
             
             # Apply discount if available
             if product.get("discount"):
-                discount = float(product["discount"]) / 100
-                price = price * (1 - discount)
+                product_discount = float(product["discount"]) / 100
+                price = price * (1 - product_discount)
                 
             item["subtotal"] = price * quantity
             cart_total += item["subtotal"]
@@ -123,6 +131,9 @@ def view_cart(request):
         if cart_total > 100:
             discount = cart_total * 0.1  # 10% discount for orders over $100
             total_with_discount = cart_total - discount
+        
+        free_shipping = 50
+        remaining_amount = max(0, free_shipping - cart_total) # Remaining amount eligible for free shipping 
 
         context = {
             "cart_items": cart_items,  
@@ -130,6 +141,7 @@ def view_cart(request):
             "cart_count": cart_count, 
             "discount_amount": round(discount, 2),
             "total_with_discount": round(total_with_discount, 2),
+            "remaining_for_free_shipping": round(remaining_amount, 2),
         }
         response = render(request, 'cart.html', context)
         
@@ -254,14 +266,15 @@ def add_to_cart(request, product_id):
 
 @csrf_exempt
 def update_cart(request, product_id):
-    """Update cart item quantity"""
+  
+    print(product_id)  # Debug print to check the request data
     if request.method != "POST":
         return handle_response(request, None, "Method not allowed", 405)
 
     try:
         # Get cart
         if request.user_data:
-            cart = get_user_cart(user_id=request.user_data["_id"])
+            cart = get_user_cart(user_id=request.user_data["user_id"])
         else:
             cart = get_user_cart(session_id=request.session.session_key)
 
@@ -279,19 +292,24 @@ def update_cart(request, product_id):
 
         # Get current quantity
         cart_items = get_cart_items(cart["_id"])
-        current_item = next((item for item in cart_items 
-                           if str(item["product"]["_id"]) == product_id), None)
         
+
+        current_item = next((item for item in cart_items 
+                             if str(item["product"]["_id"]) == product_id), None)
+       
         if not current_item:
             return handle_response(request, None, "Item not found in cart", 404)
-
+       
         # Check stock before increasing
         if action == "increase":
             # Check stock before increasing
             product = product_collection.find_one({"_id": ObjectId(product_id)})
+            print(product)
             if current_item["quantity"] >= product.get("stock", 0):
                 return handle_response(request, None, "Not enough stock available", 400)
             new_quantity = current_item["quantity"] + 1
+
+            
             
         else:  # decrease
             new_quantity = max(1, current_item["quantity"] - 1)
@@ -398,3 +416,122 @@ def remove_from_cart(request, product_id):
     except Exception as e:
         print(f"Error removing item from cart: {str(e)}")  # Debug print
         return handle_response(request, None, str(e), 500)
+
+
+def send_cart_reminder_emails():
+    try:
+        
+        # Find carts inactive for 24 hours
+        inactive_carts = carts_collection.find({
+            "updated_at": {"$lte": datetime.utcnow() - timedelta(hours=24)},
+            "reminder_sent": {"$ne": True}  # Ensure we don't send multiple reminders
+        })
+        
+        for cart in inactive_carts:
+
+            if "user_id" not in cart or not ObjectId.is_valid(cart["user_id"]):
+                print(f"Invalid or missing user_id in cart: {cart['_id']}")
+                continue
+
+            user = user_collection.find_one({"_id": ObjectId(cart["user_id"])})
+
+            cart_items = get_cart_items(cart["_id"])
+            if not cart_items:
+                print(f"No items found in cart: {cart['_id']}")
+                continue
+
+            # Prepare cart details for the email
+            cart_details = ""
+            cart_total = 0
+            for item in cart_items:
+                product = product_collection.find_one({"_id": ObjectId(item["product"]["_id"])})
+                if product:
+                    product_name = product.get("name", "Unknown Product")
+                    quantity = item.get("quantity", 0)
+                    subtotal = item.get("subtotal", 0)
+                    cart_details += f"- {product_name} (x{quantity}): ${subtotal:.2f}\n"
+                    cart_total += subtotal
+            
+            cart_link = config("SITE_URL") + "/cart"
+
+            if user and user.get("email"):
+
+                # Send reminder email
+                send_mail(
+                    subject="Don't forget your cart!",
+                    message=(
+                    f"Hi {user['name']},\n\n"
+                    "You left some items in your cart. Here's what you have:\n\n"
+                    f"{cart_details}\n"
+                    f"Total: ${cart_total:.2f}\n\n"
+                    f"Click here to view your cart: {cart_link}\n\n"
+                    "Complete your purchase now before your items run out!"
+                ),
+                    from_email=config("DEFAULT_FROM_EMAIL"),
+                    recipient_list=[user["email"]],
+                    fail_silently=False,
+                    
+                )
+
+                # Mark the cart as reminded
+                carts_collection.update_one(
+                    {"_id": cart["_id"]},
+                    {"$set": {"reminder_sent": True}}
+                )
+
+        print("Cart reminder emails sent successfully.")
+
+    except Exception as e:
+        print(f"Error sending cart reminder emails: {str(e)}")
+
+def notify_stock():
+    try:
+        carts = carts_collection.find()
+
+        for cart in carts:
+            if "user_id" not in cart or not ObjectId.is_valid(cart["user_id"]):
+                print(f"Invalid or missing user_id in cart: {cart.get('_id')}")
+                continue
+
+            # Fetch the user associated with the cart
+            user = user_collection.find_one({"_id": ObjectId(cart["user_id"])})
+            if not user or not user.get("email"):
+                print(f"User not found or missing email for cart: {cart.get('_id')}")
+                continue
+
+            # Fetch cart items
+            cart_items = get_cart_items(cart["_id"])
+            if not cart_items:
+                print(f"No items found in cart: {cart.get('_id')}")
+                continue
+
+            # Check stock status for each product in the cart
+            out_of_stock_products = []
+            for item in cart_items:
+                product = product_collection.find_one({"_id": ObjectId(item["product"]["_id"])})
+                if product and product.get("stock", 0) <= 0:
+                    out_of_stock_products.append(product.get("name", "Unknown Product"))
+
+            # If there are out-of-stock products, send a notification email
+            cart_link = config("SITE_URL") + "/cart"
+            if out_of_stock_products:
+                product_list = "\n".join(f"- {product}" for product in out_of_stock_products)
+                send_mail(
+                    subject="Some items in your cart are out of stock",
+                    message=(
+                        f"Hi {user['name']},\n\n"
+                        "The following items in your cart are currently out of stock:\n\n"
+                        f"{product_list}\n\n"
+                        "Please visit your cart to update your items.\n\n"
+                        f"Click here to view your cart: {cart_link}\n\n"
+                        "Thank you for shopping with us!"
+                    ),
+                    from_email=config("DEFAULT_FROM_EMAIL"),
+                    recipient_list=[user["email"]],
+                    fail_silently=False,
+                )
+
+                print(f"Notification sent to {user['email']} for cart {cart['_id']}.")
+
+    except Exception as e:
+        print(f"Error notifying customers about out-of-stock products: {str(e)}")
