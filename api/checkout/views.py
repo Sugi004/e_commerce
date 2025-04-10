@@ -57,10 +57,10 @@ def checkout(request):
         # Check for user_data in request or session
         session_id = request.GET.get('session_id')
         if session_id:
-            checkout_session = stripe.checkout.Session.retrieve(session_id)
-            print("checkout_session:", checkout_session)
-        # # Retrieve user_id from client_reference_id
-        user_id = checkout_session.get("client_reference_id")
+                checkout_session = stripe.checkout.Session.retrieve(session_id)
+                print("checkout_session:", checkout_session)
+                # # Retrieve user_id from client_reference_id
+                user_id = checkout_session.get("client_reference_id")
 
         user_data = getattr(request,  'user_data', None) or request.session.get('user_data') or {"user_id": user_id}
 
@@ -77,7 +77,7 @@ def checkout(request):
         # Get cart and process items
         cart = get_user_cart(user_id=user_data["user_id"])
         if not cart:
-            return render(request, 'checkout.html', {
+            return render(request, 'order_management/checkout.html', {
                 "error": "No cart found",
                 "cart_items": [],
                 "cart_total": 0
@@ -158,11 +158,11 @@ def checkout(request):
             "coupon_discount": round(coupon_discount, 2),
         }
 
-        return render(request, 'checkout.html', context)
+        return render(request, 'order_management/checkout.html', context)
 
     except Exception as e:
         print(f"Error in checkout: {str(e)}")
-        return render(request, 'checkout.html', {"error": str(e)})
+        return render(request, 'order_management/checkout.html', {"error": str(e)})
 
 @csrf_exempt
 def payment_success(request):
@@ -197,13 +197,35 @@ def payment_success(request):
             {"_id": user["_id"]},
             {"$inc": {"loyalty_points": loyalty_points}}
         )
+        
+        # Create an order in the orders collection
+        order = {
+            "user_id": user["_id"],
+            "order_status": "Pending",
+            "items": [
+                {
+                    "product_id": item["product"]["_id"],
+                    "name": item["product"]["name"],
+                    "quantity": item["quantity"],
+                    "price": item["product"]["price"],
+                    "subtotal": item["subtotal"]
+                }
+                for item in cart_items
+            ],
+            "total": cart_total,
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow()
+        }
+        orders_collection = get_collection("orders")
+        orders_collection.insert_one(order)
+
 
         # Clear the cart after successful payment
         cart_items_collection = get_collection("cart_items")
         cart_items_collection.delete_many({"cart_id": cart["_id"]})
 
         messages.success(request, f"Payment successful! You earned {loyalty_points} loyalty points.")
-        return render(request, 'payment_success.html', {"loyalty_points": loyalty_points})
+        return render(request, 'order_management/payment_success.html', {"loyalty_points": loyalty_points})
 
     except Exception as e:
         print(f"Error in payment_success: {str(e)}")
@@ -252,7 +274,7 @@ def process_payment(request):
        
 
         total = cart_total - coupon_discount + shipping_cost
-        
+        print(total)
         line_items = [{
             'price_data': {
                 'currency': 'usd',

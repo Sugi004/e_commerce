@@ -58,7 +58,7 @@ def view_cart(request):
             cart = get_user_cart(session_id=request.session.session_key)
 
         if not cart:
-            return render(request, 'cart.html', {
+            return render(request, 'order_management/cart.html', {
                 "cart_items": [], 
                 "cart_total": 0,
                 "cart_count": 0,
@@ -76,7 +76,7 @@ def view_cart(request):
                     # Cart has expired
                     clear_cart(cart["_id"])
                     messages.warning(request, "Your cart has expired. Items have been cleared.")
-                    return render(request, 'cart.html', {
+                    return render(request, 'order_management/cart.html', {
                         "cart_items": [],
                         "cart_total": 0,
                         "cart_count": 0,
@@ -143,7 +143,7 @@ def view_cart(request):
             "total_with_discount": round(total_with_discount, 2),
             "remaining_for_free_shipping": round(remaining_amount, 2),
         }
-        response = render(request, 'cart.html', context)
+        response = render(request, 'order_management/cart.html', context)
         
         if request.content_type == "application/json":
             return JsonResponse(context)
@@ -359,7 +359,7 @@ def clear_cart_view(request):
         if request.content_type == "application/json":
             return JsonResponse({"message": "Cart cleared successfully"}, status=200)
         
-        return render(request, 'cart.html')
+        return render(request, 'order_management/cart.html')
 
     except Exception as e:
         return handle_response(request, None, str(e), 500)

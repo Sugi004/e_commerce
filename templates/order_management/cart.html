@@ -180,6 +180,11 @@
                                                         <i class="bi bi-plus"></i>
                                                     </button>
                                                 </form>
+                                                {% if item.product.stock <= 5 and item.product.stock > 0 %}
+                                                    <small class="text-danger mt-1">
+                                                        Only {{ item.product.stock }} left in stock
+                                                    </small>
+                                                {% endif %}
                                             </div>
                                         </td>
                                         <td>

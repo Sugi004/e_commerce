@@ -13,14 +13,27 @@ logger = logging.getLogger(__name__)
 
 def render_products(request):
     try:
-        # Get products with category filtering
-        response = get_products(request)
+        # Get the search query from the request
+        query = request.GET.get("query", "").strip()
 
-        if isinstance(response, JsonResponse):
-            # Decode the JSON response content
-            products = json.loads(response.content.decode('utf-8'))
+        # Get products with optional search filtering
+        if query:
+            # Search for products by name, category, or brand
+            products = list(product_collection.find({
+                "$or": [
+                    {"name": {"$regex": query, "$options": "i"}},
+                    {"category": {"$regex": query, "$options": "i"}},
+                    {"brand": {"$regex": query, "$options": "i"}}
+                ]
+            }))
         else:
-            products = []
+            # Get all products if no search query is provided
+            response = get_products(request)
+            if isinstance(response, JsonResponse):
+                # Decode the JSON response content
+                products = json.loads(response.content.decode('utf-8'))
+            else:
+                products = []
 
         # Get categories for the dropdown menu
         categories = list(product_collection.distinct("category"))
@@ -29,6 +42,7 @@ def render_products(request):
         for product in products:
             product['id'] = str(product.get('_id', ''))
 
+        # Pagination
         try:
             page_number = int(request.GET.get('page', 1))
         except ValueError:
@@ -44,13 +58,9 @@ def render_products(request):
         cart_count = 0
         cart = None
 
-        # Debug logging
-        logger.debug(f"User data: {getattr(request, 'user_data', None)}")
-        logger.debug(f"Session key: {request.session.session_key}")
-
         # Handle authenticated user
         if hasattr(request, 'user_data') and request.user_data:
-            user_id = request.user_data.get('user_id')  # Changed from '_id' to 'user_id'
+            user_id = request.user_data.get('user_id')  
             logger.debug(f"Authenticated user_id: {user_id}")
             if user_id:
                 cart = get_user_cart(user_id=str(user_id))  # Ensure user_id is string
@@ -69,7 +79,6 @@ def render_products(request):
         if cart:
             cart_items = get_cart_items(cart["_id"])
             cart_count = len(cart_items)
-            logger.debug(f"Cart count: {cart_count}")
 
         context = {
             "products": page_obj,
@@ -81,10 +90,11 @@ def render_products(request):
             "showing_start": (page_number - 1) * 28 + 1,
             "showing_end": min(page_number * 28, len(products)),
             "cart_count": cart_count,
+            "query": query,
         }
 
-        return render(request, "viewProducts.html", context)
+        return render(request, "view_products.html", context)
 
     except Exception as e:
-        logger.error(f"Error in render_products: {str(e)}", exc_info=True)
+        logger.error(f"Error in render_products: {str(e)}")
         return render(request, "error.html", {"error": str(e)})

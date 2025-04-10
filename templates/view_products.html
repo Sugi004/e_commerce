@@ -33,6 +33,15 @@
                             </ul>
                         </li>
                     </ul>
+                    <form class="d-flex" action="{% url 'render_products' %}" method="get">
+                        <div class="input-group me-5">
+                            <input class="form-control" type="search" name="query" placeholder="Search products..." value="{{query}}" aria-label="Search">
+                            <button class="btn btn-outline-success" type="submit">
+                                <i class="bi bi-search"></i> 
+                            </button>
+                        </input>
+                        </div>
+                    </form>
                     <!-- Cart button always displayed -->
                     <div class="d-flex align-items-center">
                         <a href="{% url 'view_cart' %}" class="btn btn-outline-dark me-2">

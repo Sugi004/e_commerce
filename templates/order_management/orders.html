@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        {% load static %}
+        {% load productFilters %}
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+        <meta name="description" content="" />
+        <meta name="author" content="" />
+        <title>My Orders</title>
+        <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.5.0/font/bootstrap-icons.css" rel="stylesheet" />
+        <link href={% static 'css/styles.css' %} rel="stylesheet" />
+    </head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container px-4 px-lg-5">
+            <a class="navbar-brand" href="{% url 'render_products' %}">GlobalTech</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation"><span class="navbar-toggler-icon"></span></button>
+            <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0 ms-lg-4">
+                    <li class="nav-item"><a class="nav-link active" aria-current="page" href="{% url 'render_products' %}">Home</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-5">
+        <h1 class="text-center text-primary mb-4">My Orders</h1>
+        {% if orders %}
+            <div class="list-group">
+                {% for order in orders %}
+                    <div class="list-group-item">
+                        <p><strong>Order ID:</strong> {{ order.id }}</p>
+                        <p><strong>Status:</strong> <span class="badge {% if order.order_status == 'Pending' %}bg-warning{% elif order.order_status == 'Shipped' %}bg-info{% elif order.order_status == 'Delivered' %}bg-success{% elif order.order_status == 'Cancelled' %}bg-danger{% endif %}">{{ order.order_status }}</span></p>
+                        <p><strong>Total:</strong> ${{ order.total }}</p>
+                        <a href="{% url 'track_order' order.id %}" class="btn btn-outline-primary btn-sm">Track Order</a>
+                        {% if order.order_status not in non_cancellable_statuses %}
+                        <form action="{% url 'cancel_order' order.id %}" method="post" style="display:inline;">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-danger btn-sm">Cancel Order</button>
+                        </form>
+                    {% endif %}
+                    {% if order.order_status == "Delivered" %}
+                        <a href="{% url 'request_refund' order.id %}" class="btn btn-warning btn-sm">Request Refund</a>
+                    {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="text-center text-muted">No orders found.</p>
+        {% endif %}
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
