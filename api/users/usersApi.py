@@ -20,51 +20,33 @@ users_collection = get_collection("users")
 def is_json_request(request):
     return request.content_type == "application/json"
 
-def get_users(request):
-    """Admin API to get all users using token stored in cookies under 'auth_token'"""
-    token = request.COOKIES.get("auth_token").split(" ")[1]
-    if not token:
-        if is_json_request(request):
-            return JsonResponse({"error": "Authorization token required"}, status=401)
-        else:
-            messages.error(request, "Authorization token required")
-            return redirect("render_products")
-    try:
-        # Decode the JWT token from cookies
-        decoded_token = jwt.decode(token, config("SECRET_KEY"), algorithms=["HS256"])
-        # Check if the role is admin
-        if decoded_token.get("role") != "admin":
-            if is_json_request(request):
-                return JsonResponse({"error": "Access denied, admin role required"}, status=403)
-            else:
-                messages.error(request, "Access denied, admin role required")
-                return redirect("render_products")
-        # Fetch all users if admin role
-        users = list(users_collection.find())
-        # Remove sensitive information before returning
-        for user in users:
-            user["_id"] = str(user["_id"])
-            if "password" in user:
-                del user["password"]
+# For future if implementing API
+# def get_users(request):
+#     try:
+#         # Fetch all users from the database
+#         users = list(users_collection.find())
 
-        if is_json_request(request):
-            return JsonResponse({"users": users}, status=200)
-        else:
-            messages.success(request, "Users retrieved successfully")
-            return redirect("render_products")
+#         # Remove sensitive information before returning
+#         for user in users:
+#             user["id"] = str(user["_id"])  # Convert ObjectId to string
+#             if "password" in user:
+#                 del user["password"]  # Remove password for security
 
-    except jwt.ExpiredSignatureError:
-        error_msg = "Token has expired"
-    except jwt.InvalidTokenError:
-        error_msg = "Invalid token"
-    except Exception as e:
-        error_msg = str(e)
+#         # Return users as JSON if the request is JSON
+#         if is_json_request(request):
+#             return JsonResponse({"users": users}, status=200)
 
-    if is_json_request(request):
-        return JsonResponse({"error": error_msg}, status=401)
-    else:
-        messages.error(request, error_msg)
-        return redirect("render_products")
+#         # Otherwise, render the users page
+#         return render(request, "users/users.html", {"users": users, "admin_name": request.user_data.get('email')})
+
+#     except Exception as e:
+#         # Handle errors and return appropriate responses
+#         error_msg = str(e)
+#         if is_json_request(request):
+#             return JsonResponse({"error": error_msg}, status=500)
+#         else:
+#             messages.error(request, error_msg)
+#             return redirect("render_products")
 
 
 def create_user(request):
@@ -173,7 +155,7 @@ def update_user(request, user_id):
                     return JsonResponse({"error": error_msg}, status=400)
                 else:
                     messages.error(request, error_msg)
-                    return redirect("render_products")
+                    return redirect("render_users_admin")
 
             result = users_collection.update_one({"_id": ObjectId(user_id)}, {"$set": update_data})
             if result.matched_count == 0:
@@ -182,28 +164,28 @@ def update_user(request, user_id):
                     return JsonResponse({"error": error_msg}, status=404)
                 else:
                     messages.error(request, error_msg)
-                    return redirect("render_products")
+                    return redirect("render_users_admin")
 
             success_msg = "User updated successfully"
             if is_json_request(request):
                 return JsonResponse({"message": success_msg}, status=200)
             else:
                 messages.success(request, success_msg)
-                return redirect("render_products")
+                return redirect("render_users_admin")
 
         except Exception as e:
             if is_json_request(request):
                 return JsonResponse({"error": str(e)}, status=500)
             else:
                 messages.error(request, str(e))
-                return redirect("render_products")
+                return redirect("render_users_admin")
 
     error_msg = "Invalid request method"
     if is_json_request(request):
         return JsonResponse({"error": error_msg}, status=405)
     else:
         messages.error(request, error_msg)
-        return redirect("render_products")
+        return redirect("render_users_admin")
 
 
 def delete_user(request, user_id):
