@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+
+{% block title %}Manage Categories{% endblock %}
+
+{% block content %}
+    <div class="container mt-5">
+        <h1 class="text-center text-primary mb-4">Manage Categories & Tags</h1>
+
+        <!-- Add Category Form -->
+        <h2>Add Category</h2>
+        <form method="POST" action="{% url 'manage_categories' %}">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="add">
+            <input type="hidden" name="item_type" value="category">
+            <div class="mb-3">
+                <label for="new_category" class="form-label">Category Name</label>
+                <input type="text" class="form-control" id="new_category" name="new_name" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Add Category</button>
+        </form>
+
+        <!-- Add Tag Form -->
+        <h2 class="mt-5">Add Tag</h2>
+        <form method="POST" action="{% url 'manage_categories' %}">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="add">
+            <input type="hidden" name="item_type" value="tag">
+            <div class="mb-3">
+                <label for="new_tag" class="form-label">Tag Name</label>
+                <input type="text" class="form-control" id="new_tag" name="new_name" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Add Tag</button>
+        </form>
+
+        <!-- Existing Categories -->
+        <h2 class="mt-5">Existing Categories</h2>
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if categories %}
+                    {% for category in categories %}
+                        <tr>
+                            <td>{{ category }}</td>
+                            <td>
+                                <form method="POST" action="{% url 'manage_categories' %}" style="display:inline;">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="delete">
+                                    <input type="hidden" name="item_type" value="category">
+                                    <input type="hidden" name="old_name" value="{{ category }}">
+                                    <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="2" class="text-center text-muted">No Categories Found</td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+
+        <!-- Existing Tags -->
+        <h2 class="mt-5">Existing Tags</h2>
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if tags %}
+                    {% for tag in tags %}
+                        <tr>
+                            <td>{{ tag }}</td>
+                            <td>
+                                <form method="POST" action="{% url 'manage_categories' %}" style="display:inline;">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="delete">
+                                    <input type="hidden" name="item_type" value="tag">
+                                    <input type="hidden" name="old_name" value="{{ tag }}">
+                                    <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="2" class="text-center text-muted">No Tags Found</td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+{% endblock %}

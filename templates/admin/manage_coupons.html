@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+
+{% block title %}Manage Coupons{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <h1 class="text-center text-primary mb-4">Manage Coupons</h1>
+    <!-- Coupon Form -->
+    <form method="POST" action="{% url 'manage_coupons' %}">
+        {% csrf_token %}
+        <input type="hidden" name="coupon_id" value="{{ selected_coupon.id|default:'' }}">
+        <div class="mb-3">
+            <label for="code" class="form-label">Coupon Code</label>
+            <input type="text" class="form-control" id="code" name="code" value="{{ selected_coupon.code|default:'' }}" required>
+        </div>
+        <div class="mb-3">
+            <label for="discount_percentage" class="form-label">Discount Percentage</label>
+            <input type="number" class="form-control" id="discount_percentage" name="discount_percentage" value="{{ selected_coupon.discount_percentage|default:'' }}" required>
+        </div>
+        <div class="mb-3">
+            <label for="expiry_date" class="form-label">Expiry Date</label>
+            <input type="date" class="form-control" id="expiry_date" name="expiry_date" value="{{ selected_coupon.expiry_date|default:'' }}" required>
+        </div>
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="is_active" name="is_active" {% if selected_coupon.is_active %}checked{% endif %}>
+            <label class="form-check-label" for="is_active">Active</label>
+        </div>
+        <button type="submit" class="btn btn-primary mt-3">Save Coupon</button>
+    </form>
+
+    <!-- Existing Coupons Table -->
+    <h2 class="mt-5">Existing Coupons</h2>
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th>Code</th>
+                <th>Discount</th>
+                <th>Expiry Date</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% if coupons %}
+                {% for coupon in coupons %}
+                    <tr>
+                        <td>{{ coupon.code }}</td>
+                        <td>{{ coupon.discount_percentage }}%</td>
+                        <td>{{ coupon.expiry_date }}</td>
+                        <td>
+                            <span class="badge {% if coupon.is_active %}bg-success{% else %}bg-danger{% endif %}">
+                                {{ coupon.is_active|yesno:"Active,Inactive" }}
+                            </span>
+                        </td>
+                        <td>
+                            <!-- Edit Button -->
+                            <form method="GET" action="{% url 'manage_coupons' %}" style="display:inline;">
+                                <input type="hidden" name="edit_coupon_id" value="{{ coupon.id }}">
+                                <button type="submit" class="btn btn-sm btn-warning">Edit</button>
+                            </form>
+                        </td>
+                    </tr>
+                {% endfor %}
+            {% else %}
+                <tr>
+                    <td colspan="5" class="text-center text-muted">No Coupons Found</td>
+                </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

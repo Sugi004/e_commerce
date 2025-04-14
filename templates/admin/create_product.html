@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+
+{% block title %}Create Product{% endblock %}
+
+{% block content %}
+<div class="container mt-6 mb-5">
+    <h1 class="text-center text-primary mb-4">Create Product</h1>
+    {% if message %}
+        <div class="alert alert-success" >{{ message }}</div>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    {% endif %}
+    <form method="POST" action="{% url 'create_product' %}">
+        {% csrf_token %}
+        <div class="mb-3">
+            <label for="name" class="form-label">Product Name</label>
+            <input type="text" class="form-control" id="name" name="name" required>
+        </div>
+        <div class="mb-3">
+            <label for="description" class="form-label">Description</label>
+            <textarea class="form-control" id="description" name="description"></textarea>
+        </div>
+        <div class="mb-3">
+            <label for="price" class="form-label">Price</label>
+            <input type="number" class="form-control" id="price" name="price" step="0.01" required>
+        </div>
+        <div class="mb-3">
+            <label for="category" class="form-label">Category</label>
+            <input type="text" class="form-control" id="category" name="category" required>
+        </div>
+        <div class="mb-3">
+            <label for="tags" class="form-label">Tags (comma-separated)</label>
+            <input type="text" class="form-control" id="tags" name="tags">
+        </div>
+        <div class="mb-3">
+            <label for="brand" class="form-label">Brand</label>
+            <input type="text" class="form-control" id="brand" name="brand">
+        </div>
+        <div class="mb-3">
+            <label for="color" class="form-label">Color</label>
+            <input type="text" class="form-control" id="color" name="color">
+        </div>
+        <div class="mb-3">
+            <label for="model" class="form-label">Model</label>
+            <input type="text" class="form-control" id="model" name="model">
+        </div>
+        <div class="mb-3">
+            <label for="stock" class="form-label">Stock</label>
+            <input type="number" class="form-control" id="stock" name="stock" required>
+        </div>
+        <div class="mb-3">
+            <label for="seller_id" class="form-label">Seller ID</label>
+            <input type="text" class="form-control" id="seller_id" name="seller_id" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Create Product</button>
+    </form>
+</div>
+{% endblock %}

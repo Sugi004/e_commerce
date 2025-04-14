@@ -6,8 +6,6 @@ from .productsApi import get_products, product_collection
 from django.core.paginator import Paginator 
 from ..cart_management.cart_management_db import get_user_cart, get_cart_items
 
-# Set up logging
-logger = logging.getLogger(__name__)
 
 
 
@@ -71,9 +69,7 @@ def render_products(request):
             if not request.session.session_key:
                 request.session.create()
                 request.session.save()  # Ensure session is saved
-            logger.debug(f"Guest session key: {request.session.session_key}")
             cart = get_user_cart(session_id=request.session.session_key)
-            logger.debug(f"Guest cart: {cart}")
 
         # Calculate cart count
         if cart:
@@ -96,5 +92,5 @@ def render_products(request):
         return render(request, "view_products.html", context)
 
     except Exception as e:
-        logger.error(f"Error in render_products: {str(e)}")
+        
         return render(request, "error.html", {"error": str(e)})

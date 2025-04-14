@@ -1,0 +1,71 @@
+{% extends 'base.html' %}
+
+{% block title %} Admin Panel {% endblock %}
+
+{% block content %}
+    <div class="container mt-5">
+        <h1 class="text-center text-primary mb-4">Admin Panel</h1>
+        <div class="row">
+            <!-- View Users -->
+            <div class="col-md-4 mb-4">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title">View Users</h5>
+                        <p class="card-text">Manage all registered users.</p>
+                        <a href="{% url 'render_users_admin' %}" class="btn btn-primary">Go to Users</a>
+                    </div>
+                </div>
+            </div>
+            <!-- Create Product -->
+            <div class="col-md-4 mb-4">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title">Create Product</h5>
+                        <p class="card-text">Add new products to the store.</p>
+                        <a href="{% url 'create_product' %}" class="btn btn-primary">Create Product</a>
+                    </div>
+                </div>
+            </div>
+            <!-- Manage Coupons -->
+            <div class="col-md-4 mb-4">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title">Manage Coupons</h5>
+                        <p class="card-text">Create, modify, or expire discount coupons.</p>
+                        <a href="{% url 'manage_coupons' %}" class="btn btn-primary">Manage Coupons</a>
+                    </div>
+                </div>
+            </div>
+            <!-- View Refund Requests -->
+            <div class="col-md-4 mb-4">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title">Refund Requests</h5>
+                        <p class="card-text">Approve or reject refund requests.</p>
+                        <a href="{% url 'view_refund_requests' %}" class="btn btn-primary">View Refunds</a>
+                    </div>
+                </div>
+            </div>
+            <!-- Moderate Reviews -->
+            <div class="col-md-4 mb-4">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title">Moderate Reviews</h5>
+                        <p class="card-text">Approve or reject product reviews and ratings.</p>
+                        <a href="{% url 'moderate_reviews' %}" class="btn btn-primary">Moderate Reviews</a>
+                    </div>
+                </div>
+            </div>
+            <!-- Manage Categories and Tags -->
+            <div class="col-md-4 mb-4">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title">Manage Categories & Tags</h5>
+                        <p class="card-text">Add, edit, or delete product categories and tags.</p>
+                        <a href="{% url 'manage_categories' %}" class="btn btn-primary">Manage Categories</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}

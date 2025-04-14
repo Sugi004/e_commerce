@@ -1,28 +1,11 @@
+{% extends 'base.html' %}
 {%load static%}
 {% load productFilters %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ product.name }} - Product Detail</title>
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
-</head>
-<body>
-    <!-- Navigation Bar -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-        <div class="container">
-            <a class="navbar-brand" href="{% url 'render_products' %}">E-Commerce Store</a>
-            <ul class="navbar-nav me-auto mb-2 mb-lg-0 ms-lg-4">
-                <li class="nav-item"><a class="nav-link active" aria-current="page" href="{% url 'render_products' %}">Home</a></li>
-            </ul>
-        </div>
-    </nav>
 
+{% block title %}Product Detail{% endblock %}
+{% block content %}
     <!-- Product Section -->
-    <div class="container mt-5">
+    <div class="container mt-5 mb-5">
         <div class="row">
             <!-- Product Image -->
             <div class="col-md-6">
@@ -108,6 +91,10 @@
                     <li class="nav-item" role="presentation">
                         <a class="nav-link" id="attributes-tab" data-bs-toggle="tab" href="#attributes" role="tab">Specifications</a>
                     </li>
+                    <li class="nav-item" role="presentation">
+                        <a class="nav-link" id="reviews-tab" data-bs-toggle="tab" href="#reviews" role="tab">Reviews</a>
+                    </li>
+
                 </ul>
                 <div class="tab-content mt-4" id="productDetailsTabContent">
                     <!-- Description Tab -->
@@ -132,10 +119,46 @@
                             </div>
                         </div>
                     </div>
+                    <!-- Reviews Tab -->
+                    <div class="tab-pane fade" id="reviews" role="tabpanel">
+                        <h3>Customer Reviews</h3>
+                        {% if reviews %}
+                            <ul class="list-group">
+                                {% for review in reviews %}
+                                    <li class="list-group-item">
+                                        <p><strong>User:</strong> {{ review.username }}</p>
+                                        <p><strong>Rating:</strong> {{ review.rating }} / 5</p>
+                                        <p><strong>Review:</strong> {{ review.review }}</p>
+                                        <p><small class="text-muted">Reviewed on {{ review.created_at }}</small></p>
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        {% else %}
+                            <p class="text-muted">No reviews available for this product.</p>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
         </div>
+
+        <!-- Review Submission Section -->
+        <div class="container mt-5">
+            <h2>Submit a Review</h2>
+            <form method="POST" action="{% url 'submit_review' product.id %}">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label for="rating" class="form-label">Rating (1-5)</label>
+                    <input type="number" class="form-control" id="rating" name="rating" min="1" max="5" required>
+                </div>
+                <div class="mb-3">
+                    <label for="review" class="form-label">Review</label>
+                    <textarea class="form-control" id="review" name="review" rows="3" required></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">Submit Review</button>
+            </form>
+        </div>
     </div>
+    
 
     <!-- Sign-up Prompt Modal -->
     {% if not request.user_data %}
@@ -175,5 +198,4 @@
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>
+{% endblock %}

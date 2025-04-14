@@ -41,28 +41,21 @@ This link expires in {timeout} minutes.''',
 
 @csrf_exempt
 def checkout(request):
-    COUPONS = {
-    "SAVE10": 10,
-    "FLAT50": 50,
-    "FREESHIP": 0,
-    "WELCOME20": 20,
-    "SUMMER15": 15,
-    "WINTER25": 25,
-    "BLACKFRIDAY": 30,
-    "CYBERMONDAY": 40,
-    "HOLIDAY50": 50,
-    "LOYALTY5": 5,
-    }
     try:
+        # Fetch all active coupons from the coupons collection
+        coupons_collection = get_collection("coupons")
+        active_coupons = {
+            coupon["code"]: coupon["discount_percentage"]
+            for coupon in coupons_collection.find({"is_active": True})
+        }
+
         # Check for user_data in request or session
         session_id = request.GET.get('session_id')
         if session_id:
-                checkout_session = stripe.checkout.Session.retrieve(session_id)
-                print("checkout_session:", checkout_session)
-                # # Retrieve user_id from client_reference_id
-                user_id = checkout_session.get("client_reference_id")
+            checkout_session = stripe.checkout.Session.retrieve(session_id)
+            user_id = checkout_session.get("client_reference_id")
 
-        user_data = getattr(request,  'user_data', None) or request.session.get('user_data') or {"user_id": user_id}
+        user_data = getattr(request, 'user_data', None) or request.session.get('user_data') or {"user_id": user_id}
 
         if not user_data:
             messages.warning(request, "Payment was cancelled. Please log in to view your cart.")
@@ -96,7 +89,7 @@ def checkout(request):
                 }
             )
 
-            if send_verification_email(user["email"], verification_token, str(user["_id"])):
+            if send_verification_email(user["email"], verification_token, str(user["_id"])): 
                 messages.info(request, "Please verify your email to complete checkout. Verification link sent.")
             else:
                 messages.error(request, "Failed to send verification email. Please try again.")
@@ -117,7 +110,7 @@ def checkout(request):
 
             item["subtotal"] = price * quantity
             cart_total += item["subtotal"]
-        
+
         # Apply 10% discount for cart total over $100
         if cart_total > 100:
             cart_total -= cart_total * 0.1 
@@ -129,8 +122,8 @@ def checkout(request):
         coupon_code = request.POST.get("coupon_code", "").strip().upper()
         coupon_discount = 0
         if coupon_code:
-            if coupon_code in COUPONS:
-                discount_value = COUPONS[coupon_code]
+            if coupon_code in active_coupons:
+                discount_value = active_coupons[coupon_code]
                 if discount_value > 0:
                     if discount_value < 100:  # Percentage discount
                         coupon_discount = cart_total * (discount_value / 100)
@@ -219,7 +212,6 @@ def payment_success(request):
         orders_collection = get_collection("orders")
         orders_collection.insert_one(order)
 
-
         # Clear the cart after successful payment
         cart_items_collection = get_collection("cart_items")
         cart_items_collection.delete_many({"cart_id": cart["_id"]})
@@ -237,20 +229,10 @@ def payment_cancel(request):
     try:
         # Retrieve the session_id from the query parameters
         session_id = request.GET.get('session_id')
-        # Retrieve the Stripe session
-        checkout_session = stripe.checkout.Session.retrieve(session_id)
-
-        # Retrieve user_id from client_reference_id
-        user_id = checkout_session.get("client_reference_id")
-
-        user = users_collection.find_one({"_id": ObjectId(user_id)})
-
-        # Notify the user that the payment was cancelled
         messages.warning(request, f"Payment was cancelled. Your cart items are still saved.")
         return redirect(f"/checkout/?session_id={session_id}")
 
     except Exception as e:
-        print(f"Error in payment_cancel: {str(e)}")
         messages.error(request, "An unexpected error occurred. Please try again.")
         return redirect("checkout")
 
@@ -268,13 +250,9 @@ def process_payment(request):
         cart = get_user_cart(user_id=request.user_data["user_id"]) if request.user_data else get_user_cart(session_id=request.session.session_key)
         if not cart:
             messages.error(request, "No cart found")
-            return redirect('checkout')
-
-        cart_items = get_cart_items(cart["_id"])
-       
+            return redirect('checkout')       
 
         total = cart_total - coupon_discount + shipping_cost
-        print(total)
         line_items = [{
             'price_data': {
                 'currency': 'usd',
@@ -286,7 +264,6 @@ def process_payment(request):
             },
             'quantity': 1,
         }]
-
 
         # Create Stripe checkout session
         checkout_session = stripe.checkout.Session.create(

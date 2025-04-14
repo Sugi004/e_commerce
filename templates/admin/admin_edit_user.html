@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+
+
+{% block title %} Edit User{% endblock %}
+
+
+{% block content %}
+<div class="container mt-5">
+  <h2 class="mb-4">Edit User</h2>
+  <form method="POST" action="{% url 'update_user' user.id %}">
+    {% csrf_token %}
+    <!-- Simulate PUT request -->
+    <input type="hidden" name="_method" value="PUT">
+
+    <div class="mb-3">
+      <label for="name" class="form-label">Name</label>
+      <input type="text" class="form-control" id="name" name="name" value="{{ user.name }}">
+    </div>
+
+    <div class="mb-3">
+      <label for="email" class="form-label">Email</label>
+      <input type="email" class="form-control" id="email" name="email" value="{{ user.email }}">
+    </div>
+
+    <div class="mb-3">
+      <label for="role" class="form-label">Role</label>
+      <select class="form-select" id="role" name="role">
+        <option value="admin" {% if user.role == 'admin' %}selected{% endif %}>Admin</option>
+        <option value="customer" {% if user.role == 'customer' %}selected{% endif %}>Customer</option>
+      </select>
+    </div>
+
+    <div class="mb-3">
+      <label for="status" class="form-label">Status</label>
+      <div class="form-check">
+        <input class="form-check-input" type="radio" name="is_active" id="active" value="true" {% if user.is_active %}checked{% endif %}>
+        <label class="form-check-label" for="active">Active</label>
+      </div>
+      <div class="form-check">
+        <input class="form-check-input" type="radio" name="is_active" id="inactive" value="false" {% if not user.is_active %}checked{% endif %}>
+        <label class="form-check-label" for="inactive">Inactive</label>
+      </div>
+    </div>
+
+    <div class="form-check mb-3">
+      <input class="form-check-input" type="checkbox" id="is_locked" name="is_locked" value="true" {% if user.is_locked %}checked{% endif %}>
+      <label class="form-check-label" for="is_locked">Locked</label>
+    </div>
+
+    <div class="mb-3">
+      <label for="password" class="form-label">Password</label>
+      <input type="password" class="form-control" id="password" name="password" placeholder="Enter new password to update">
+      <div class="form-text">Leave blank to keep the current password.</div>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Update User</button>
+  </form>
+</div>
+{% endblock %}

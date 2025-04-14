@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+
+{% block title %}Refund Requests{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <h1 class="text-center text-primary mb-4">Refund Requests</h1>
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th>User ID</th>
+                <th>Order ID</th>
+                <th>Reason</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% if refund_requests %}
+                {% for refund in refund_requests %}
+                    <tr>
+                        <td>{{ refund.user_id }}</td>
+                        <td>{{ refund.order_id }}</td>
+                        <td>{{ refund.reason }}</td>
+                        <td>
+                            <span class="badge {% if refund.status == 'approved' %}bg-success{% elif refund.status == 'rejected' %}bg-danger{% else %}bg-warning{% endif %}">
+                                {{ refund.status|capfirst }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if refund.status == "pending" %}
+                                <form method="POST" action="{% url 'view_refund_requests' %}" style="display:inline;">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="refund_id" value="{{ refund.id }}">
+                                    <input type="hidden" name="action" value="approve">
+                                    <button type="submit" class="btn btn-sm btn-success">Approve</button>
+                                </form>
+                                <form method="POST" action="{% url 'view_refund_requests' %}" style="display:inline;">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="refund_id" value="{{ refund.id }}">
+                                    <input type="hidden" name="action" value="reject">
+                                    <button type="submit" class="btn btn-sm btn-danger">Reject</button>
+                                </form>
+                            {% else %}
+                                <span class="text-muted">No actions available</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            {% else %}
+                <tr>
+                    <td colspan="5" class="text-center text-muted">No Refund Requests Available</td>
+                </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

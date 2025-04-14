@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+{% load productFilters%}
+
+{% block title %}Moderate Reviews{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <h1 class="text-center text-primary mb-4">Moderate Reviews</h1>
+
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th>Product Name</th>
+                <th>Rating</th>
+                <th>Review</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% with total_reviews=0 %}
+                {% for review in reviews %}
+                    {% if review.reviews and review.reviews|length > 0 %}
+                        {% for value in review.reviews %}
+                        <tr>
+                            <td>{{ review.product_name }}</td>
+                            <td>{{ value.rating }}</td>
+                            <td>{{ value.review }}</td>
+                            <td>
+                                <span class="badge {% if value.status == 'approved' %}bg-success{% elif value.status == 'rejected' %}bg-danger{% else %}bg-warning{% endif %}">
+                                    {{ value.status|capfirst }}
+                                </span>
+                            </td>
+                            <td>
+                                <form method="POST" action="{% url 'moderate_reviews' %}" style="display:inline;">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="review_id" value="{{ value.id }}">
+                                    <input type="hidden" name="action" value="approve">
+                                    <button type="submit" class="btn btn-sm btn-success">Approve</button>
+                                </form>
+                                <form method="POST" action="{% url 'moderate_reviews' %}" style="display:inline;">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="review_id" value="{{ value.id }}">
+                                    <input type="hidden" name="action" value="reject">
+                                    <button type="submit" class="btn btn-sm btn-danger">Reject</button>
+                                </form>
+                                <form method="POST" action="{% url 'moderate_reviews' %}" style="display:inline;">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="review_id" value="{{ value.id }}">
+                                    <input type="hidden" name="action" value="delete">
+                                    <button type="submit" class="btn btn-sm btn-secondary">Delete</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% with total_reviews=total_reviews|add:review.reviews|length %}
+                        {%endwith%}
+                        {% endif %}
+                   
+                {% endfor %}
+                {% if total_reviews == 0 %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted">No Reviews Found</td>
+                    </tr>
+                {% endif %}
+            {% endwith %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
