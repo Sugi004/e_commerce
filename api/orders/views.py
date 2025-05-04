@@ -1,11 +1,7 @@
-from django.shortcuts import render, redirect
-from django.views.decorators.csrf import csrf_exempt
-from django.contrib import messages
-from django.contrib import messages
-from api.mongoDb import get_collection
-from bson import ObjectId
-from datetime import datetime
-
+from ..modules import *
+from .order_schema import RefundRequestSchema
+from marshmallow import ValidationError
+from ..utils.date_utils import validate_and_convert_dates
 
 @csrf_exempt
 def my_orders(request):
@@ -17,16 +13,21 @@ def my_orders(request):
             return redirect('login/login_view')
 
         # Fetch orders for the user
-        orders_collection = get_collection("orders")
         orders = list(orders_collection.find({"user_id": ObjectId(user_data["user_id"])}))
 
         for order in orders:
             order["id"] = str(order["_id"])
+            for item in order.get("items", []):
+                product = products_collection.find_one({"_id": ObjectId(item["product_id"])})
+                item["product_name"] = product["name"] if product else "Unknown Product"
 
         non_cancellable_statuses = ["Shipped", "Delivered", "Cancelled"]
 
         # Render the orders page
-        return render(request, 'order_management/orders.html', {"orders": orders, "non_cancellable_statuses": non_cancellable_statuses})
+        return render(request, 'order_management/orders.html',
+                      {"orders": orders,
+                       "non_cancellable_statuses": non_cancellable_statuses
+                       })
 
     except Exception as e:
         print(f"Error in my_orders: {str(e)}")
@@ -36,22 +37,74 @@ def my_orders(request):
 @csrf_exempt
 def track_order(request, order_id):
     try:
-        # Retrieve the order by ID
         order = get_collection("orders").find_one({"_id": ObjectId(order_id)})
         if not order:
             messages.error(request, "Order not found.")
-            return redirect("my_orders")  # Redirect to the "My Orders" page
+            return redirect("my_orders")
 
-        # Get the current order status
-        order_status = order.get("order_status", "Unknown")
+        order_status = order.get("status", order.get("order_status", "Unknown")).lower()
+        created_at = order.get("created_at")
+        if not created_at:
+            created_at = datetime.utcnow()  # fallback if missing
 
-        # Render the order status page
-        return render(request, "order_management/track_order.html", {"order_id": order_id, "order_status": order_status})
+        # Ensure created_at is a datetime object
+        if isinstance(created_at, str):
+            created_at = datetime.fromisoformat(created_at)
+
+        timeline = [
+            {"status": "Order Placed", "timestamp": created_at.strftime("%Y-%m-%d %H:%M"), "note": "Order placed"}
+        ]
+
+        if order_status == "pending":
+            timeline.append({
+                "status": "Pending",
+                "timestamp": (created_at + timedelta(days=1)).strftime("%Y-%m-%d %H:%M"),
+                "note": "Awaiting processing"
+            })
+        elif order_status == "shipped":
+            timeline.append({
+                "status": "Processed",
+                "timestamp": (created_at + timedelta(days=1)).strftime("%Y-%m-%d %H:%M"),
+                "note": "Order processed"
+            })
+            timeline.append({
+                "status": "Shipped",
+                "timestamp": (created_at + timedelta(days=3)).strftime("%Y-%m-%d %H:%M"),
+                "note": "Shipped via DHL, tracking #12345"
+            })
+        elif order_status == "delivered":
+            timeline.append({
+                "status": "Processed",
+                "timestamp": (created_at + timedelta(days=1)).strftime("%Y-%m-%d %H:%M"),
+                "note": "Order processed"
+            })
+            timeline.append({
+                "status": "Shipped",
+                "timestamp": (created_at + timedelta(days=3)).strftime("%Y-%m-%d %H:%M"),
+                "note": "Shipped via DHL, tracking #12345"
+            })
+            timeline.append({
+                "status": "Delivered",
+                "timestamp": (created_at + timedelta(days=6)).strftime("%Y-%m-%d %H:%M"),
+                "note": "Delivered to address"
+            })
+        elif order_status == "cancelled":
+            timeline.append({
+                "status": "Cancelled",
+                "timestamp": (created_at + timedelta(days=1)).strftime("%Y-%m-%d %H:%M"),
+                "note": "Order was cancelled"
+            })
+
+        return render(request, "order_management/track_order.html", {
+            "order_id": order_id,
+            "status": order.get("status", order.get("order_status", "Unknown")),
+            "tracking_history": timeline
+        })
 
     except Exception as e:
         print(f"Error in track_order: {str(e)}")
         messages.error(request, "An unexpected error occurred. Please try again.")
-        return redirect("my_orders") 
+        return redirect("my_orders")
 
 @csrf_exempt
 def cancel_order(request, order_id):
@@ -103,11 +156,27 @@ def request_refund(request, order_id):
             # Add refund request to the database
             refund_request = {
                 "order_id": ObjectId(order_id),
+                "user_id": ObjectId(order["user_id"]),
+                "amount": order.get("total_price", 0.0),  # Assuming total price is the refund amount
                 "reason": reason,
                 "status": "Pending",
                 "requested_at": datetime.utcnow(),
             }
-            get_collection("refund_requests").insert_one(refund_request)
+            refund_schema = RefundRequestSchema()
+            
+
+            refund_request = validate_and_convert_dates(refund_request, ["requested_at"])
+           
+            # Validate the refund request data
+
+            try:
+                validated_refund = refund_schema.load(refund_request)
+            except ValidationError as e:
+                print(f"Refund validation error: {e.messages}")
+                messages.error(request, "Failed to submit refund request.")
+                return redirect("my_orders")
+            # Insert the validated data in database
+            get_collection("refund_requests").insert_one(validated_refund)
 
             # Update the order status to "Refund Requested"
             get_collection("orders").update_one(

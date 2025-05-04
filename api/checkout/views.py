@@ -1,21 +1,10 @@
-from django.shortcuts import render, redirect
-from django.views.decorators.csrf import csrf_exempt
+from ..modules import  *
 from ..cart_management.cart_management_db import get_user_cart, get_cart_items
-from django.http import JsonResponse
+from ..orders.order_schema import OrderSchema
 import stripe
-from django.conf import settings
-from django.urls import reverse
-from django.contrib import messages
-from django.core.mail import send_mail
-from django.contrib import messages
-from api.mongoDb import get_collection
-from bson import ObjectId
-import uuid
-from datetime import datetime, timedelta
 
 # Initialize Stripe
 stripe.api_key = settings.STRIPE_SECRET_KEY
-users_collection = get_collection("users")
 
 @csrf_exempt
 def send_verification_email(email, verification_token, user_id):
@@ -42,26 +31,21 @@ This link expires in {timeout} minutes.''',
 @csrf_exempt
 def checkout(request):
     try:
-        # Fetch all active coupons from the coupons collection
-        coupons_collection = get_collection("coupons")
-        active_coupons = {
-            coupon["code"]: coupon["discount_percentage"]
-            for coupon in coupons_collection.find({"is_active": True})
-        }
-
         # Check for user_data in request or session
         session_id = request.GET.get('session_id')
         if session_id:
             checkout_session = stripe.checkout.Session.retrieve(session_id)
             user_id = checkout_session.get("client_reference_id")
 
-        user_data = getattr(request, 'user_data', None) or request.session.get('user_data') or {"user_id": user_id}
+        user_data = getattr(request,  'user_data', None) or request.session.get('user_data') or {"user_id": user_id}
+
+        request.user_data = user_data  # Set user_data for later use
 
         if not user_data:
             messages.warning(request, "Payment was cancelled. Please log in to view your cart.")
             return redirect("login_view")
 
-        # Verify email before proceeding
+        # Verify user before proceeding
         user = users_collection.find_one({"_id": ObjectId(user_data["user_id"])})
         if not user:
             messages.error(request, "User not found")
@@ -70,7 +54,7 @@ def checkout(request):
         # Get cart and process items
         cart = get_user_cart(user_id=user_data["user_id"])
         if not cart:
-            return render(request, 'order_management/checkout.html', {
+            return render(request, 'order_management/cart.html', {
                 "error": "No cart found",
                 "cart_items": [],
                 "cart_total": 0
@@ -89,7 +73,7 @@ def checkout(request):
                 }
             )
 
-            if send_verification_email(user["email"], verification_token, str(user["_id"])): 
+            if send_verification_email(user["email"], verification_token, str(user["_id"])):
                 messages.info(request, "Please verify your email to complete checkout. Verification link sent.")
             else:
                 messages.error(request, "Failed to send verification email. Please try again.")
@@ -110,7 +94,7 @@ def checkout(request):
 
             item["subtotal"] = price * quantity
             cart_total += item["subtotal"]
-
+        
         # Apply 10% discount for cart total over $100
         if cart_total > 100:
             cart_total -= cart_total * 0.1 
@@ -118,28 +102,8 @@ def checkout(request):
         # Calculate shipping cost, free shipping for orders more than $50
         shipping_cost = 0 if cart_total > 50 else 10.00
 
-        # Handle coupon code
-        coupon_code = request.POST.get("coupon_code", "").strip().upper()
-        coupon_discount = 0
-        if coupon_code:
-            if coupon_code in active_coupons:
-                discount_value = active_coupons[coupon_code]
-                if discount_value > 0:
-                    if discount_value < 100:  # Percentage discount
-                        coupon_discount = cart_total * (discount_value / 100)
-                    else:  # Flat discount
-                        coupon_discount = discount_value
-                    messages.success(request, f"Coupon '{coupon_code}' applied successfully!")
-                else:
-                    # Handle free shipping coupon
-                    shipping_cost = 0
-                    messages.success(request, f"Coupon '{coupon_code}' applied successfully! Free shipping applied.")
-            else:
-                messages.error(request, "Invalid coupon code.")
-        
-        # Ensure discount does not exceed cart total
-        coupon_discount = min(coupon_discount, cart_total)
-        cart_total -= coupon_discount
+        coupon_discount = apply_coupon(request, cart_total)
+        discounted_total = cart_total - coupon_discount
 
         context = {
             "cart_items": cart_items,
@@ -149,13 +113,16 @@ def checkout(request):
             "stripe_public_key": settings.STRIPE_PUBLIC_KEY,
             "user": user,
             "coupon_discount": round(coupon_discount, 2),
+            "discounted_total": round(discounted_total, 2),
+            "cart_count" : len(cart_items),
+
         }
 
         return render(request, 'order_management/checkout.html', context)
 
     except Exception as e:
         print(f"Error in checkout: {str(e)}")
-        return render(request, 'order_management/checkout.html', {"error": str(e)})
+        return render(request, 'order_management/cart.html', {"error": str(e)})
 
 @csrf_exempt
 def payment_success(request):
@@ -190,34 +157,44 @@ def payment_success(request):
             {"_id": user["_id"]},
             {"$inc": {"loyalty_points": loyalty_points}}
         )
-        
+
         # Create an order in the orders collection
         order = {
             "user_id": user["_id"],
-            "order_status": "Pending",
+            "status": "Pending",
             "items": [
                 {
                     "product_id": item["product"]["_id"],
                     "name": item["product"]["name"],
                     "quantity": item["quantity"],
                     "price": item["product"]["price"],
-                    "subtotal": item["subtotal"]
                 }
                 for item in cart_items
             ],
-            "total": cart_total,
+            "total_price": cart_total,
             "created_at": datetime.utcnow(),
             "updated_at": datetime.utcnow()
         }
+
+        # Validate the order using OrderSchema
+        order_schema = OrderSchema()
+        try:
+            validated_order = order_schema.load(order)  # Validate the order data
+        except ValidationError as e:
+            print(f"Order validation error: {e.messages}")
+            messages.error(request, "Failed to process the order. Please try again.")
+            return redirect('checkout')
+
+        # Insert the validated order into the database
         orders_collection = get_collection("orders")
-        orders_collection.insert_one(order)
+        orders_collection.insert_one(validated_order)
 
         # Clear the cart after successful payment
         cart_items_collection = get_collection("cart_items")
         cart_items_collection.delete_many({"cart_id": cart["_id"]})
 
         messages.success(request, f"Payment successful! You earned {loyalty_points} loyalty points.")
-        return render(request, 'order_management/payment_success.html', {"loyalty_points": loyalty_points})
+        return render(request, 'payment_success.html', {"loyalty_points": loyalty_points})
 
     except Exception as e:
         print(f"Error in payment_success: {str(e)}")
@@ -233,6 +210,7 @@ def payment_cancel(request):
         return redirect(f"/checkout/?session_id={session_id}")
 
     except Exception as e:
+        print(f"Error in payment_cancel: {str(e)}")
         messages.error(request, "An unexpected error occurred. Please try again.")
         return redirect("checkout")
 
@@ -292,3 +270,43 @@ def process_payment(request):
     except Exception as e:
         messages.error(request, "An unexpected error occurred. Please try again.")
         return redirect('checkout')
+
+def apply_coupon(request, cart_total):
+    """
+    Apply a coupon to the cart total.
+    """
+    try:
+        # Retrieve coupons from the database
+        coupons_collection = get_collection("coupons")
+
+        active_coupons = {
+            coupon["code"]: coupon["discount_percentage"]
+            for coupon in coupons_collection.find({"is_active": True})
+        }
+        
+        # Handle coupon code
+        coupon_code = request.POST.get("coupon_code", "").strip().upper()
+        coupon_discount = 0
+        if coupon_code:
+            if coupon_code in active_coupons:
+                discount_value = active_coupons[coupon_code]
+                if discount_value > 0:
+                    if discount_value < 100:  # Percentage discount
+                        coupon_discount = cart_total * (discount_value / 100)
+                    else:  # Flat discount
+                        coupon_discount = discount_value
+                    messages.success(request, f"Coupon '{coupon_code}' applied successfully!")
+                else:
+                    # Handle free shipping coupon
+                    messages.success(request, f"Coupon '{coupon_code}' applied successfully! Free shipping applied.")
+            else:
+                messages.error(request, "Coupon Expired or Invalid coupon code.")
+        
+        # Ensure discount does not exceed cart total
+        coupon_discount = min(coupon_discount, cart_total)
+        return coupon_discount
+
+    except Exception as e:
+        print(f"Error in apply_coupon: {str(e)}")
+        messages.error(request, "An error occurred while applying the coupon.")
+        return 0

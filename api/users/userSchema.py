@@ -1,5 +1,4 @@
-from marshmallow import Schema, fields, validates, ValidationError
-from bson import ObjectId
+from ..modules import validate, ObjectId, fields, Schema, validates, ValidationError
 
 # Custom ObjectId field for MongoDB validation
 class ObjectIdField(fields.Field):
@@ -14,7 +13,7 @@ class ObjectIdField(fields.Field):
 
 # Address Schema (Only for Customers)
 class AddressSchema(Schema):
-
+    user_id = ObjectIdField(required=True)  # Reference to the user's _id in the users collection
     type = fields.Str(required=True)
     street = fields.Str(required=True)
     city = fields.Str(required=True)
@@ -30,8 +29,8 @@ class UserSchema(Schema):
     email = fields.Email(required=True)
     password = fields.Str(required=True, load_only=True)  # Never return password
     role = fields.Str(required=False, missing="customer")
-    is_admin = fields.Bool(required=False, missing=False)
     is_active = fields.Bool(default=True, missing=True)
+    is_locked = fields.Bool(default=False, missing=False)
     created_at = fields.DateTime(required=False)
     updated_at = fields.DateTime(required=False)
     addresses = fields.List(fields.Nested(AddressSchema), required=False)
@@ -41,6 +40,10 @@ class UserSchema(Schema):
         values=fields.Bool(),
         required=False
     )
+    failed_attempts = fields.Int(default=0, missing=0) 
+    last_failed_attempt = fields.DateTime(required=False)
+    reset_token = fields.Str(required=False)
+    reset_token_expires = fields.DateTime(required=False)
 
     @validates("role")
     def validate_role(self, value):

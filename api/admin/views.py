@@ -1,14 +1,5 @@
-from django.shortcuts import render, redirect
-from datetime import datetime
-from ..mongoDb import get_collection
-from django.contrib import messages
-from bson import ObjectId
-
-users_collection = get_collection("users")
-coupons_collection = get_collection("coupons")
-refund_requests_collection = get_collection("refund_requests")
-reviews_collection = get_collection("reviews")
-products_collection = get_collection("products")
+from ..modules import *
+from django.core.paginator import Paginator
 
 def render_users_admin(request):
     """Render the admin user management page."""
@@ -18,9 +9,8 @@ def render_users_admin(request):
             return render(request, "login/login.html")
         # Check if the user is authenticated and has admin role
         if request.user_data.get("role") != "admin":
-            return render(request, "error.html", {
-                "error": "Access denied. Admin privileges required."
-            })
+            messages.error(request, "Access denied. Admin privileges required.")
+            return render(request, "error.html")
 
         # Fetch users from the database
         users = list(users_collection.find())
@@ -38,22 +28,22 @@ def render_users_admin(request):
             transformed_users.append(transformed_user)
 
         # Render the admin user management page
-        return render(request, "users/users.html", {
+        return render(request, "admin/users.html", {
             "users": transformed_users,
             "admin_name": request.user_data.get("email"),
         })
 
     except Exception as e:
         # Handle errors and render the error page
-        return render(request, "error.html", {
-            "error": f"An error occurred: {str(e)}"
-        })
+        print(f"Error in render_users_admin: {str(e)}")
+        messages.error(request, f"An error occurred: {str(e)}")
+        return render(request, "error.html")
 
 def render_admin_panel(request):
     """Render the admin panel."""
     try:
         if not request.user_data or request.user_data.get("role") != "admin":
-            return render(request, "error.html", {"error": "Access denied. Admin privileges required."})
+            return render(request, "error.html",  )
         return render(request, "admin/admin.html")
     except Exception as e:
         print(f"Error in render_admin_panel: {str(e)}")
@@ -62,7 +52,8 @@ def render_admin_panel(request):
 def manage_coupons(request):
     try:
         if not request.user_data or request.user_data.get("role") != "admin":
-            return render(request, "error.html", {"error": "Access denied. Admin privileges required."})
+            messages.error(request, "Access denied. Admin privileges required.")
+            return render(request, "error.html",  )
 
         selected_coupon = None
 
@@ -127,7 +118,10 @@ def view_refund_requests(request):
     """View to display and manage refund requests."""
     try:
         if not request.user_data or request.user_data.get("role") != "admin":
-            return render(request, "error.html", {"error": "Access denied. Admin privileges required."})
+            messages.error(request, "Access denied. Admin privileges required.")
+            return render(request, "error.html")
+
+        user = None
 
         if request.method == "POST":
             refund_id = request.POST.get("refund_id")
@@ -150,9 +144,13 @@ def view_refund_requests(request):
         refund_requests = list(refund_requests_collection.find())
         for refund in refund_requests:
             refund["id"] = str(refund["_id"])
+            user = users_collection.find_one({"_id": ObjectId(refund["user_id"])})
+            refund["user_name"] = user["name"] if user else "Unknown User"
+            refund["amount"] = refund.get("amount", 0)
+            refund["requested_at"] = refund.get("requested_at", datetime.utcnow())
 
         return render(request, "admin/refund_requests.html", {
-            "refund_requests": refund_requests
+            "refund_requests": refund_requests,
         })
 
     except Exception as e:
@@ -163,14 +161,13 @@ def moderate_reviews(request):
     try:
         # Ensure the user is an admin
         if not request.user_data or request.user_data.get("role") != "admin":
-            return render(request, "error.html", {"error": "Access denied. Admin privileges required."})
+            messages.error(request, "Access denied. Admin privileges required.")
+            return render(request)
 
         if request.method == "POST":
             # Handle review approval, rejection, or deletion
             review_id = request.POST.get("review_id")
             action = request.POST.get("action")  
-            
-            print(review_id)
 
             if review_id and ObjectId.is_valid(review_id):
                 # Fetch the review by its ID
@@ -191,7 +188,6 @@ def moderate_reviews(request):
                     status = "approved" if action == "approve" else "rejected"
         
                     review_document = reviews_collection.find_one({"reviews.id": ObjectId(review_id)})
-                    print(review_document)
                     reviews_collection.update_one(
                     {"reviews.id": ObjectId(review_id)},
                     {"$set": {
@@ -204,15 +200,19 @@ def moderate_reviews(request):
 
         # Fetch all reviews
         reviews = list(reviews_collection.find())
-        
+        total_reviews = 0
 
         for review in reviews:
             review["id"] = str(review["_id"])  # Convert ObjectId to string
             product = products_collection.find_one({"_id": ObjectId(review["product_id"])})
             review["product_name"] = product["name"] if product else "Unknown Product"
+            
+            if "reviews" in review and isinstance(review["reviews"], list):
+                total_reviews += len(review["reviews"])
         
         return render(request, "admin/reviews.html", {
-            "reviews": reviews
+            "reviews": reviews,
+            "total_reviews": total_reviews
         })
         
 
@@ -223,7 +223,8 @@ def moderate_reviews(request):
 def manage_categories(request):
     try:
         if not request.user_data or request.user_data.get("role") != "admin":
-            return render(request, "error.html", {"error": "Access denied. Admin privileges required."})
+            messages.error(request, "Access denied. Admin privileges required.")
+            return render(request, "error.html")
 
         if request.method == "POST":
             # Handle category or tag creation, update, or deletion
@@ -292,3 +293,44 @@ def manage_categories(request):
     except Exception as e:
         print(f"Error in manage_categories_tags: {str(e)}")
         return render(request, "error.html", {"error": str(e)})
+
+def manage_products(request):
+    """Render the admin manage products page with search, edit, and delete options."""
+    try:
+        # Ensure only admins can access
+        if not request.user_data or request.user_data.get("role") != "admin":
+            messages.error(request, "Access denied. Admin privileges required.")
+            return render(request)
+
+        search_query = request.GET.get("search", "").strip()
+        products = []
+
+        if search_query:
+            # Search products by name (case-insensitive)
+            products = list(products_collection.find({
+                "name": {"$regex": search_query, "$options": "i"}
+            }))
+        else:
+            # Show all products by default (or limit for performance)
+            products = list(products_collection.find())
+
+        # Convert ObjectId to string for template usage
+        for product in products:
+            product["id"] = str(product.get("_id", ""))
+
+        # Handle pagination
+        paginator = Paginator(products, 30)  # 30 products per page
+        page_number = request.GET.get('page', 1)
+
+
+        return render(request, "admin/manage_products.html", {
+            "products": products,
+            "search_query": search_query,
+            "page_obj": paginator.get_page(page_number),
+            "paginator": paginator,
+        })
+
+    except Exception as e:
+        print(f"Error in render_manage_products: {str(e)}")
+        return render(request, "error.html", {"error": str(e)})
+

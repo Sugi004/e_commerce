@@ -1,25 +1,22 @@
-from ..mongoDb import get_collection
-from datetime import datetime, timedelta
-from bson import ObjectId
+from ..modules import *
+from .cart_schema import CartSchema
+from ..utils.date_utils import validate_and_convert_dates
 
-def initialize_cart_collection():
- 
-    cart_collection = get_collection("carts")
+def initialize_carts_collection():
     
     # Create indexes
-    cart_collection.create_index([("user_id", 1)], unique=True)
-    cart_collection.create_index([("session_id", 1)], unique=True)
-    cart_collection.create_index([("expires_at", 1)], expireAfterSeconds=0)
+    carts_collection.create_index([("user_id", 1)], unique=True)
+    carts_collection.create_index([("session_id", 1)], unique=True)
+    carts_collection.create_index([("expires_at", 1)], expireAfterSeconds=0)
     
-    return cart_collection
+    return carts_collection
 
 def get_user_cart(user_id=None, session_id=None):
-    cart_collection = get_collection("carts")
     try:
         if user_id:
-            return cart_collection.find_one({"user_id": str(user_id)})
+            return carts_collection.find_one({"user_id": str(user_id)})
         elif session_id:
-            return cart_collection.find_one({"session_id": session_id})
+            return carts_collection.find_one({"session_id": session_id})
     except Exception as e:
         print(f"Error getting cart: {str(e)}")
         return None
@@ -28,13 +25,12 @@ def get_user_cart(user_id=None, session_id=None):
 
 def create_cart(user_id=None, session_id=None):
     """Create new cart document"""
-    cart_collection = get_collection("carts")
     now = datetime.utcnow()
     
     cart = {
         "items": [],
         "created_at": now,
-        "updated_at": now
+        "updated_at": now,
     }
     
     # Add identifiers based on what's provided
@@ -46,8 +42,20 @@ def create_cart(user_id=None, session_id=None):
         cart["session_id"] = session_id
         cart["expires_at"] = now + timedelta(hours=24)
     
+    
+
+    cart_schema = CartSchema()
+
+    validated_cart = validate_and_convert_dates(cart, ["created_at", "updated_at", "expires_at"])
+
     try:
-        result = cart_collection.insert_one(cart)
+        cart_schema.load(validated_cart)  # Validate the cart schema
+    except ValidationError as e:
+        print(f"Cart validation error: {e.messages}")
+        return None
+
+    try:
+        result = carts_collection.insert_one(cart)
         return str(result.inserted_id)
     except Exception as e:
         print(f"Error creating cart: {str(e)}")
@@ -55,11 +63,10 @@ def create_cart(user_id=None, session_id=None):
 
 def update_cart_item(cart_id, product_id, quantity, action="update"):
     """Update or remove cart items"""
-    cart_collection = get_collection("carts")
     now = datetime.utcnow()
     
     if action == "remove":
-        return cart_collection.update_one(
+        return carts_collection.update_one(
             {"_id": ObjectId(cart_id)},
             {
                 "$pull": {"items": {"product_id": str(product_id)}},
@@ -68,14 +75,14 @@ def update_cart_item(cart_id, product_id, quantity, action="update"):
         )
     
     # Check if item exists in cart
-    cart = cart_collection.find_one({
+    cart = carts_collection.find_one({
         "_id": ObjectId(cart_id),
         "items.product_id": str(product_id)
     })
     
     if cart:
         # Update existing item
-        return cart_collection.update_one(
+        return carts_collection.update_one(
             {
                 "_id": ObjectId(cart_id),
                 "items.product_id": str(product_id)
@@ -90,7 +97,7 @@ def update_cart_item(cart_id, product_id, quantity, action="update"):
         )
     else:
         # Add new item
-        return cart_collection.update_one(
+        return carts_collection.update_one(
             {"_id": ObjectId(cart_id)},
             {
                 "$push": {
@@ -104,19 +111,16 @@ def update_cart_item(cart_id, product_id, quantity, action="update"):
                 "$set": {"updated_at": now}
             }
         )
-
+    
 def get_cart_items(cart_id):
     """Get all items in cart with product details"""
-    cart_collection = get_collection("carts")
-    product_collection = get_collection("products")
-    
-    cart = cart_collection.find_one({"_id": ObjectId(cart_id)})
+    cart = carts_collection.find_one({"_id": ObjectId(cart_id)})
     if not cart:
         return []
     
     cart_items = []
     for item in cart.get("items", []):
-        product = product_collection.find_one({"_id": ObjectId(item["product_id"])})
+        product = products_collection.find_one({"_id": ObjectId(item["product_id"])})
         if product:
             product["_id"] = str(product["_id"])
             cart_items.append({
@@ -133,8 +137,8 @@ def get_cart_items(cart_id):
 
 def clear_cart(cart_id):
     """Remove all items from cart"""
-    cart_collection = get_collection("carts")
-    return cart_collection.update_one(
+    carts_collection = get_collection("carts")
+    return carts_collection.update_one(
         {"_id": ObjectId(cart_id)},
         {
             "$set": {
@@ -143,41 +147,3 @@ def clear_cart(cart_id):
             }
         }
     )
-
-def transfer_guest_cart(session_id, user_id):
-    """Transfer items from guest cart to user cart"""
-    cart_collection = get_collection("carts")
-    
-    # Get guest cart
-    guest_cart = cart_collection.find_one({"session_id": session_id})
-    if not guest_cart:
-        return None
-        
-    # Get or create user cart
-    user_cart = cart_collection.find_one({"user_id": str(user_id)})
-    if not user_cart:
-        create_cart(user_id=user_id)
-        user_cart = cart_collection.find_one({"user_id": str(user_id)})
-    
-    # Transfer items
-    if guest_cart.get("items"):
-        now = datetime.utcnow()
-        # Update user cart with guest items
-        cart_collection.update_one(
-            {"_id": user_cart["_id"]},
-            {
-                "$push": {
-                    "items": {
-                        "$each": guest_cart["items"]
-                    }
-                },
-                "$set": {
-                    "updated_at": now
-                }
-            }
-        )
-        
-        # Remove guest cart
-        cart_collection.delete_one({"_id": guest_cart["_id"]})
-        
-    return user_cart["_id"]

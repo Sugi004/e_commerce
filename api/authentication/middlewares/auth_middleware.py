@@ -1,6 +1,5 @@
 import jwt
 from django.conf import settings
-from django.http import HttpResponseForbidden
 
 class TokenMiddleware:
     def __init__(self, get_response):
