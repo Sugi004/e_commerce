@@ -1,11 +1,13 @@
-{% extends 'base.html' %}
+{% extends "base.html"%}
 {%load static%}
 {% load productFilters %}
 
-{% block title %}Product Detail{% endblock %}
-{% block content %}
+{%block title%} {{ product.name }} - Product Detail {%endblock%}
+{% block content%}
+{% include "includes/messages.html"%}
+
     <!-- Product Section -->
-    <div class="container mt-5 mb-5">
+    <div class="container mt-5">
         <div class="row">
             <!-- Product Image -->
             <div class="col-md-6">
@@ -94,7 +96,6 @@
                     <li class="nav-item" role="presentation">
                         <a class="nav-link" id="reviews-tab" data-bs-toggle="tab" href="#reviews" role="tab">Reviews</a>
                     </li>
-
                 </ul>
                 <div class="tab-content mt-4" id="productDetailsTabContent">
                     <!-- Description Tab -->
@@ -140,9 +141,8 @@
                 </div>
             </div>
         </div>
-
-        <!-- Review Submission Section -->
-        <div class="container mt-5">
+         <!-- Review Submission Section -->
+         <div class="container mt-5 ">
             <h2>Submit a Review</h2>
             <form method="POST" action="{% url 'submit_review' product.id %}">
                 {% csrf_token %}
@@ -154,11 +154,12 @@
                     <label for="review" class="form-label">Review</label>
                     <textarea class="form-control" id="review" name="review" rows="3" required></textarea>
                 </div>
+                <div class="mb-3">
                 <button type="submit" class="btn btn-primary">Submit Review</button>
+                </div>
             </form>
         </div>
     </div>
-    
 
     <!-- Sign-up Prompt Modal -->
     {% if not request.user_data %}
@@ -198,4 +199,4 @@
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/js/bootstrap.bundle.min.js"></script>
-{% endblock %}
+{%endblock%}

@@ -4,6 +4,7 @@
 
 
 {% block content %}
+{% include "includes/messages.html"%}
 <style>
     .cart-img {
         width: 80px;
@@ -39,8 +40,8 @@
     }
 </style>
     
-<div class="container py-5">
-    <div class="row mb-4">
+<div class="container">
+    <div class="row">
         <div class="col">
             <h2 class="mb-0">Shopping Cart</h2>
             <p class="text-muted">{% if cart_count %}{{ cart_count }} items{% else %}No items{% endif %}</p>
@@ -61,23 +62,7 @@
             {% endif %}
         </div>
     </div>
-    {% endif %}
-    <div class="container mt-3">
-        {% if messages %}
-            {% for message in messages %}
-                <div class="alert {% if message.tags == 'error' %}alert-danger{% elif message.tags == 'warning' %}alert-warning{% else %}alert-success{% endif %} alert-dismissible fade show" role="alert">
-                    <strong>
-                        {% if message.tags == 'error' %}Error!
-                        {% elif message.tags == 'warning' %}Warning!
-                        {% else %}Success!{% endif %}
-                    </strong>
-                    {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            {% endfor %}
-        {% endif %}
-    </div>
-    
+    {% endif %}    
     {% if cart_items %}
         <div class="row">
             <div class="col-12">
@@ -136,7 +121,7 @@
                                                             name="action" 
                                                             value="decrease" 
                                                             class="btn btn-outline-secondary btn-sm"
-                                                            {% if item.quantity <= item.product.stock %}disabled{% endif %}>
+                                                        {% if item.quantity <= 1 %}disabled{% endif %}>
                                                         <i class="bi bi-dash"></i>
                                                     </button>
                                                     <span class="mx-3">{{ item.quantity }}</span>
@@ -280,5 +265,4 @@
         </div>
     </div>
 </div>
-
 {% endblock %}

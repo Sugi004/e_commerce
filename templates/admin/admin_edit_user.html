@@ -5,6 +5,7 @@
 
 
 {% block content %}
+{% include "includes/messages.html" %}
 <div class="container mt-5">
   <h2 class="mb-4">Edit User</h2>
   <form method="POST" action="{% url 'update_user' user.id %}">

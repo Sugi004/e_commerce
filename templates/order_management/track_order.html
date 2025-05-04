@@ -1,11 +1,29 @@
 {% extends 'base.html' %}
+{% load static %}
 
-{% block title %}Track Order{% endblock %}
+{% block title %} Track Order {% endblock %}
 
 {% block content %}
-    <h1>Track Your Order</h1>
+    <h1 class="text-center text-primary mb-4"> Track Order </h1>
     <p><strong>Order ID:</strong> {{ order_id }}</p>
-    <p><strong>Order Status:</strong> {{ order_status }}</p>
+    <p><strong>Current Status:</strong> {{ status }}</p>
+
+    {% if tracking_history %}
+        <h4 class="mt-4">Order Timeline</h4>
+        <ul class="list-group mb-4">
+            {% for event in tracking_history %}
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <span>
+                        <strong>{{ event.status|capfirst }}</strong>
+                        {% if event.note %}<br><small>{{ event.note }}</small>{% endif %}
+                    </span>
+                    <span class="text-muted">{{ event.timestamp }}</span>
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>No tracking updates available yet.</p>
+    {% endif %}
 
     <a href="{% url 'my_orders' %}">Back to My Orders</a>
 {% endblock %}

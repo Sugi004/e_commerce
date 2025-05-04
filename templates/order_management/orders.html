@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 
 {% block title %} My Orders {% endblock %}
-
+{% include "includes/messages.html"%}
 {% block content %}
     <div class="container mt-5">
         <h1 class="text-center text-primary mb-4">My Orders</h1>
@@ -10,18 +10,42 @@
                 {% for order in orders %}
                     <div class="list-group-item">
                         <p><strong>Order ID:</strong> {{ order.id }}</p>
-                        <p><strong>Status:</strong> <span class="badge {% if order.order_status == 'Pending' %}bg-warning{% elif order.order_status == 'Shipped' %}bg-info{% elif order.order_status == 'Delivered' %}bg-success{% elif order.order_status == 'Cancelled' %}bg-danger{% endif %}">{{ order.order_status }}</span></p>
-                        <p><strong>Total:</strong> ${{ order.total }}</p>
+                        <p><strong>Status:</strong> <span class="badge {% if order.status == 'Pending' %}bg-warning{% elif order.status == 'Shipped' %}bg-info{% elif order.status == 'Delivered' %}bg-success{% elif order.status == 'Cancelled' %}bg-danger{% endif %}">{{ order.status }}</span></p>
+                        <p><strong>Total:</strong> ${{ order.total_price }}</p>
+                        
+                        <!-- Order Items Table -->
+                        <div class="mb-2">
+                            <strong>Items:</strong>
+                            <table class="table table-sm table-bordered mt-2">
+                                <thead>
+                                    <tr>
+                                        <th>Product Name</th>
+                                        <th>Quantity</th>
+                                        <th>Price</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in order.items %}
+                                    <tr>
+                                        <td>{{ item.product_name }}</td>
+                                        <td>{{ item.quantity }}</td>
+                                        <td>${{ item.price }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
                         <a href="{% url 'track_order' order.id %}" class="btn btn-outline-primary btn-sm">Track Order</a>
-                        {% if order.order_status not in non_cancellable_statuses %}
+                        {% if order.status not in non_cancellable_statuses %}
                         <form action="{% url 'cancel_order' order.id %}" method="post" style="display:inline;">
                             {% csrf_token %}
                             <button type="submit" class="btn btn-danger btn-sm">Cancel Order</button>
                         </form>
-                    {% endif %}
-                    {% if order.order_status == "Delivered" %}
-                        <a href="{% url 'request_refund' order.id %}" class="btn btn-warning btn-sm">Request Refund</a>
-                    {% endif %}
+                        {% endif %}
+                        {% if order.status == "Delivered" %}
+                            <a href="{% url 'request_refund' order.id %}" class="btn btn-warning btn-sm">Request Refund</a>
+                        {% endif %}
                     </div>
                 {% endfor %}
             </div>

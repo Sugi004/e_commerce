@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %} Add Address {% endblock %}
+
+{% load static %}
+
+
+
+{% block content %}
+{% include "includes/messages.html" %}
+<div class="container mt-5">
+    <h2 class="text-center text-primary mb-4">Add Address</h2>
+    <form method="POST" action="{% url 'add_address' user_id %}">
+        {% csrf_token %}
+        <div class="mb-3">
+            <label for="type" class="form-label">Address Type</label>
+            <input type="text" class="form-control" id="type" name="type" placeholder="e.g., Home, Work" required>
+        </div>
+        <div class="mb-3">
+            <label for="street" class="form-label">Street</label>
+            <input type="text" class="form-control" id="street" name="street" placeholder="Enter street address" required>
+        </div>
+        <div class="mb-3">
+            <label for="city" class="form-label">City</label>
+            <input type="text" class="form-control" id="city" name="city" placeholder="Enter city" required>
+        </div>
+        <div class="mb-3">
+            <label for="state" class="form-label">State</label>
+            <input type="text" class="form-control" id="state" name="state" placeholder="Enter state" required>
+        </div>
+        <div class="mb-3">
+            <label for="zip" class="form-label">ZIP Code</label>
+            <input type="text" class="form-control" id="zip" name="zip" placeholder="Enter ZIP code" required>
+        </div>
+        <div class="mb-3">
+            <label for="country" class="form-label">Country</label>
+            <input type="text" class="form-control" id="country" name="country" placeholder="Enter country" required>
+        </div>
+        <div class="mb-3">
+            <label for="phone" class="form-label">Phone (Optional)</label>
+            <input type="text" class="form-control" id="phone" name="phone" placeholder="Enter phone number">
+        </div>
+        <button type="submit" class="btn btn-primary mb-5">Add Address</button>
+        <a href="{% url 'profile_view' user_id %}" class="btn btn-secondary mb-5">Cancel</a>
+    </form>
+</div>
+{% endblock %}

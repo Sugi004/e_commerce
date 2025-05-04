@@ -3,11 +3,10 @@
 {% load static %}
 {% load productFilters %}
 
-
-
 {% block title %} Checkout {% endblock %}
 
 {% block content %}
+{% include "includes/messages.html"%}
     <!-- Checkout Section -->
     <div class="container py-5">
         {% if error %}
@@ -46,9 +45,12 @@
                                     <form method="post" action="{% url 'checkout' %}" class="d-flex justify-content-between">
                                         {% csrf_token %}
                                         <div class="form-group">
-                                            <input type="text" name="coupon_code" id="coupon_code" class="form-control" placeholder="Enter coupon code">
+                                            <input type="text" name="coupon_code" id="coupon_code" class="form-control" placeholder="Enter coupon code" required>
+                                            {% if coupon_error %}
+                                                <small class="text-danger">{{ coupon_error }}</small>
+                                            {% endif %}
                                         </div>
-                                        <button type="submit" class="btn btn-primary mt-2">Apply Coupon</button>
+                                        <button type="submit" class="btn btn-primary mt-2" >Apply Coupon</button>
                                     </form>
                                 </li>
                                 <li class="list-group-item d-flex justify-content-between">
@@ -57,13 +59,23 @@
                                         {% if coupon_discount > 0 %}
                                             <p class="text-success">Coupon Discount: -${{ coupon_discount }}</p>
                                         {% endif %}
-                                        <p>Shipping Cost: ${{ shipping_cost }}</p>
-                                        <h5>Total with Shipping: ${{ total_with_shipping }}</h5>
+                                        {%if discounted_total%}
+                                            <p>Shipping Cost: ${{ shipping_cost }}</p>
+                                            <h5>Total with Shipping: ${{ discounted_total }}</h5>
+                                        {% else %}
+                                            <p class="text-danger">Shipping Cost: ${{ shipping_cost }}</p>
+                                            <h5>Total with Shipping: ${{ total_with_shipping }}</h5>
+                                        {% endif %}
                                     </div>
                                 </li>
                                 <li class="list-group-item d-flex justify-content-between bg-light">
+
                                     <span class="text-success">Total (USD)</span>
-                                    <strong class="text-success">${{ total_with_shipping|floatformat:2 }}</strong>
+                                    {%if discounted_total%}
+                                        <strong class="text-success">${{ discounted_total|floatformat:2 }}</strong>
+                                    {% else %}
+                                        <strong class="text-danger">${{ total_with_shipping|floatformat:2 }}</strong>
+                                    {% endif %}
                                 </li>
                             </ul>
                             

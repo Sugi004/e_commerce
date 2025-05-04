@@ -3,14 +3,17 @@
 {% block title %}Refund Requests{% endblock %}
 
 {% block content %}
+{% include 'includes/messages.html' %}
 <div class="container mt-5">
     <h1 class="text-center text-primary mb-4">Refund Requests</h1>
     <table class="table table-bordered">
         <thead>
             <tr>
-                <th>User ID</th>
+                <th>User</th>
                 <th>Order ID</th>
                 <th>Reason</th>
+                <th>Amount</th>
+                <th>Requested At</th>
                 <th>Status</th>
                 <th>Actions</th>
             </tr>
@@ -19,9 +22,11 @@
             {% if refund_requests %}
                 {% for refund in refund_requests %}
                     <tr>
-                        <td>{{ refund.user_id }}</td>
+                        <td>{{ refund.user_name }}</td>
                         <td>{{ refund.order_id }}</td>
                         <td>{{ refund.reason }}</td>
+                        <td>${{ refund.amount }}</td>
+                        <td>{{ refund.requested_at}}</td>
                         <td>
                             <span class="badge {% if refund.status == 'approved' %}bg-success{% elif refund.status == 'rejected' %}bg-danger{% else %}bg-warning{% endif %}">
                                 {{ refund.status|capfirst }}
@@ -49,7 +54,7 @@
                 {% endfor %}
             {% else %}
                 <tr>
-                    <td colspan="5" class="text-center text-muted">No Refund Requests Available</td>
+                    <td colspan="7" class="text-center text-muted">No Refund Requests Available</td>
                 </tr>
             {% endif %}
         </tbody>

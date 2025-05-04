@@ -77,24 +77,7 @@
                 </div>
             </div>
         </nav>
-        <div class="position-fixed top-0 end-0 p-3" style="z-index: 1050">
-            {% if messages %}
-                {% for message in messages %}
-                    <div class="toast show align-items-center border-0 {% if message.tags == 'error' %}bg-danger{% elif message.tags == 'warning' %}bg-warning{% else %}bg-success{% endif %} text-white" 
-                         role="alert" 
-                         aria-live="assertive" 
-                         aria-atomic="true">
-                        <div class="d-flex">
-                            <div class="toast-body">
-                                <i class="bi {% if message.tags == 'error' %}bi-x-circle{% elif message.tags == 'warning' %}bi-exclamation-circle{% else %}bi-check-circle{% endif %} me-2"></i>
-                                {{ message }}
-                            </div>
-                            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
-                        </div>
-                    </div>
-                {% endfor %}
-            {% endif %}
-        </div>
+        {% include "includes/messages.html"%}
         <!-- Header-->
         <header class="bg-dark py-5">
             <div class="container px-4 px-lg-5 my-5">
@@ -160,8 +143,8 @@
 
                                         {% if request.user_data %}
                                             <!-- Authenticated User Content -->
-                                            {% if product.discount %}
-                                                {% with discounted_price=product.price|multiply:0.01|multiply:product.discount|subtract:product.price|abs %}
+                                            {% if product.attributes.discount %}
+                                                {% with discounted_price=product.price|multiply:0.01|multiply:product.attributes.discount|subtract:product.price|abs %}
                                                     <span class="text-decoration-line-through text-muted">${{ product.price }}</span>
                                                     <span class="text-primary">${{ discounted_price|floatformat:2 }}</span>
                                                 {% endwith %}
@@ -246,10 +229,21 @@
         </section>
         
         <!-- Footer-->
-        <footer class="py-5 bg-dark">
-            <div class="container">
-                <p class="m-0 text-center text-white">Copyright &copy; Your Website {% now "Y" %}</p>
+        <footer class="py-3 bg-dark mb-0 " style="position: relative; bottom: 0; width: 100%;">
+            <div class="container mb-0">
+                <p class="m-0 mb-0 text-center text-white">Copyright &copy; GlobalTech {% now "Y" %}</p>
             </div>
+    
+            <div class="container">
+                <p class="m-0 mb-0 text-center text-white">GlobalTech - Your one-stop shop for all tech needs</p>
+                <p class="m-0 mb-0 text-center text-white">Follow us on social media: 
+                    <a href="#" class="text-white"><i class="bi bi-facebook"></i></a>
+                    <a href="#" class="text-white"><i class="bi bi-twitter"></i></a>
+                    <a href="#" class="text-white"><i class="bi bi-instagram"></i></a>
+                    <a href="#" class="text-white"><i class="bi bi-linkedin"></i></a>
+                </p>
+            </div>
+            
         </footer>
 
         <!-- Bootstrap core JS-->

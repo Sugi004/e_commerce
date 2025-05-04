@@ -4,6 +4,7 @@
 {% block title %}Moderate Reviews{% endblock %}
 
 {% block content %}
+{% include 'includes/messages.html' %}
 <div class="container mt-5">
     <h1 class="text-center text-primary mb-4">Moderate Reviews</h1>
 
@@ -18,7 +19,11 @@
             </tr>
         </thead>
         <tbody>
-            {% with total_reviews=0 %}
+            {% if total_reviews == 0 %}
+                <tr>
+                    <td colspan="6" class="text-center text-muted">No Reviews Found</td>
+                </tr>
+            {% else %}
                 {% for review in reviews %}
                     {% if review.reviews and review.reviews|length > 0 %}
                         {% for value in review.reviews %}
@@ -58,12 +63,7 @@
                         {% endif %}
                    
                 {% endfor %}
-                {% if total_reviews == 0 %}
-                    <tr>
-                        <td colspan="6" class="text-center text-muted">No Reviews Found</td>
-                    </tr>
-                {% endif %}
-            {% endwith %}
+            {% endif %}
         </tbody>
     </table>
 </div>
