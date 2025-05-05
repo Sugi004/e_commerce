@@ -134,14 +134,14 @@ You can insert sample products, users, orders, reviews, coupons, and refund requ
 
 ## 12. Support
 
-For questions or issues, contact [@Sugi04-cpu](https://github.com/Sugi04-cpu).
+For questions or issues, contact [@Sugi004](https://github.com/Sugi004).
 
 ---
 
 ## 13. Credits
 
 **Author:** Sugishivam Murugesan  
-**GitHub:** [@Sugi04-cpu](https://github.com/Sugi04-cpu)
+**GitHub:** [@Sugi004](https://github.com/Sugi004)
 
 ---
 
